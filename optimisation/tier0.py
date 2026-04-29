@@ -206,8 +206,32 @@ def plot_results(df):
 
     plt.tight_layout()
     plt.show()
+def run_tier(df):
+    """
+    Standard interface so test_tiers.py can call this tier.
+    """
 
+    # --- YOUR EXISTING LOGIC HERE ---
+    # Replace this part depending on tier
 
+    schedule = naive_rank_strategy(df)   # example (Tier 0/1)
+
+    profit = evaluate_schedule_on_prices(
+        schedule,
+        df["p50_eur_mwh"].to_numpy()
+    )
+
+    # Return %
+    capital = 1_750_000  # or whatever you use globally
+    ret = 100 * profit / capital
+
+    return {
+        "profit_eur": float(profit),
+        "return_pct": float(ret),
+        "schedule": schedule,
+    }
+
+ 
 # ============================================================
 # RUN
 # ============================================================
