@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pyomo.environ import *
 
-
+#regime mixture
 # ============================================================
 # Battery config
 # ============================================================
