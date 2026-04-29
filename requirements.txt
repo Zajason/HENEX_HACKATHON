@@ -10,3 +10,4 @@ scikit-learn
 lightgbm
 prophet
 pyarrow
+pyomo
