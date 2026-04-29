@@ -160,12 +160,69 @@ The main comparison should be economic, not only statistical:
 
 The best model is the one that improves risk-adjusted battery profit after constraints, not necessarily the one with the lowest price forecast error.
 
-## Spread Filter
+## Hold Cost (Theta) Decomposition
 
-For any candidate charge interval `i` and discharge interval `j`, compute:
+The simplified `degradation_cost` term used elsewhere in this document is shorthand for cycling wear only. Real carry has time-based and SoC-dependent components that the optimizer needs to see, otherwise it will hold at 100% SoC for many hours waiting for a peak and not be charged for the privilege.
+
+Full decomposition:
 
 ```text
-spread_i_j = price_hat_j * eta_dis - price_hat_i / eta_ch - degradation_cost - fees
+theta_t = theta_cycle
+        + theta_calendar
+        + theta_self_discharge
+        + theta_aux
+        + theta_capital
+        + theta_fixed
+```
+
+| Component | Driver | Scales with | LP form |
+| --- | --- | --- | --- |
+| `theta_cycle` | Wear from cycling | `charge_t + discharge_t` (throughput) | linear in throughput (already in objective) |
+| `theta_calendar` | Capacity fade at rest, accelerated by high SoC and temperature | `SoC_t * dt` | linear in `SoC_t`; kinked form below |
+| `theta_self_discharge` | Physical energy leakage from the cell | `SoC_t * dt` | enters SoC dynamics, not the objective |
+| `theta_aux` | BMS plus thermal management consumption | `dt` or `price_t * dt` | constant per interval, or priced at clearing |
+| `theta_capital` | Cost of capital tied up in stored MWh | `r * V(SoC_t) * dt` | linear in `SoC_t` with shadow price `r` |
+| `theta_fixed` | O&M, lease, capacity fees, insurance | `dt` (constant) | does not affect schedule, only reported profit |
+
+LP-compatible implementations:
+
+- Linear calendar fade:
+  ```text
+  theta_calendar = c_cal * sum_t SoC_t * dt_t
+  ```
+- Kinked calendar fade above `SoC_threshold` (still LP, via slack `s_t`):
+  ```text
+  theta_calendar = c_low * sum_t SoC_t + c_high * sum_t s_t
+  s_t >= SoC_t - SoC_threshold
+  s_t >= 0
+  ```
+- Self-discharge in the SoC dynamics:
+  ```text
+  soc_t_plus_1 = (1 - delta_self) * soc_t + eta_ch * charge_t * dt_t - discharge_t * dt_t / eta_dis
+  ```
+- Aux load: `P_aux * sum_t price_hat_t * dt_t`, or a flat MWh/day deduction.
+- Capital cost: `r * value_of_stored_energy(SoC_t) * dt_t`, using rolling charge price or the dual on the SoC bound from the previous solve as the proxy for value.
+- Fixed O&M: constant per day, deducted from reported profit only.
+
+Operational consequences once these terms are in the objective:
+
+- Just-in-time charging: a 14-hour hold at full SoC now has a visible cost, so the optimizer trades earlier-and-cheaper charging against later-and-cleaner charging.
+- Bias toward a 50-80% SoC band, matching real BESS operating practice and warranty terms.
+- Hold-time aware spread filter (see below): a long-hold spread must beat a short-hold spread by enough to cover the additional carry.
+
+Terminology note: in options vocabulary `theta_cycle` is transaction cost, `theta_capital` is rho, and the time-decay components (`theta_calendar`, `theta_self_discharge`, `theta_aux`, `theta_fixed`) are true theta. For the public pitch, treating all of them as "carry" is clearer.
+
+## Spread Filter
+
+For any candidate charge interval `i` and discharge interval `j`, compute the hold-time aware spread:
+
+```text
+spread_i_j = price_hat_j * eta_dis
+           - price_hat_i / eta_ch
+           - (theta_cycle_i + theta_cycle_j)
+           - sum_{k=i..j} theta_calendar_k(SoC)
+           - sum_{k=i..j} theta_aux_k
+           - fees
 ```
 
 Only allow a trade if:
@@ -174,7 +231,7 @@ Only allow a trade if:
 spread_i_j > lambda_buffer * forecast_error_MAD
 ```
 
-This prevents the optimizer from chasing small spreads that are likely forecast noise. It also gives a clear explanation for why the battery sometimes remains idle.
+This prevents the optimizer from chasing small spreads that are likely forecast noise, penalizes long holds at high SoC, and gives a clear explanation for why the battery sometimes remains idle.
 
 ## Optimization Layer
 
@@ -195,7 +252,7 @@ maximize sum_t dt_t * price_hat_t * (discharge_t - charge_t)
 Core constraints:
 
 ```text
-soc_t_plus_1 = soc_t + eta_ch * charge_t * dt_t - discharge_t * dt_t / eta_dis
+soc_t_plus_1 = (1 - delta_self) * soc_t + eta_ch * charge_t * dt_t - discharge_t * dt_t / eta_dis
 
 0 <= soc_t <= energy_capacity_mwh
 0 <= charge_t <= charge_power_max_mw
