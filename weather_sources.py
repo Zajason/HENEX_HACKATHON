@@ -20,6 +20,16 @@ RAW_WEATHER_DIR.mkdir(parents=True, exist_ok=True)
 PROCESSED_WEATHER_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# load_weight: population-based proxy for electricity demand drivers
+# (mainly cooling/heating load). Rough estimates from Hellenic Statistical
+# Authority regional populations, normalized to sum to 1 across the
+# represented zones.
+#
+# Caveat: the current 6-zone geometry is RES-oriented and does not include
+# a dedicated point near Thessaloniki (~2nd largest demand center). The
+# west_macedonia zone is used as the closest proxy for the wider
+# Macedonia/Thessaloniki demand pool until a Thessaloniki zone is added or
+# IPTO's actual zonal load distribution is plugged in.
 GREEK_ZONES = [
     {
         "zone": "attica",
@@ -27,6 +37,7 @@ GREEK_ZONES = [
         "lon": 23.72,
         "solar_weight": 0.20,
         "wind_weight": 0.10,
+        "load_weight": 0.50,
     },
     {
         "zone": "central_greece",
@@ -34,6 +45,7 @@ GREEK_ZONES = [
         "lon": 22.40,
         "solar_weight": 0.20,
         "wind_weight": 0.25,
+        "load_weight": 0.08,
     },
     {
         "zone": "thessaly",
@@ -41,6 +53,7 @@ GREEK_ZONES = [
         "lon": 22.42,
         "solar_weight": 0.25,
         "wind_weight": 0.10,
+        "load_weight": 0.10,
     },
     {
         "zone": "west_macedonia",
@@ -48,6 +61,7 @@ GREEK_ZONES = [
         "lon": 21.78,
         "solar_weight": 0.15,
         "wind_weight": 0.10,
+        "load_weight": 0.20,
     },
     {
         "zone": "crete",
@@ -55,6 +69,7 @@ GREEK_ZONES = [
         "lon": 24.81,
         "solar_weight": 0.10,
         "wind_weight": 0.20,
+        "load_weight": 0.07,
     },
     {
         "zone": "aegean_islands",
@@ -62,6 +77,7 @@ GREEK_ZONES = [
         "lon": 25.33,
         "solar_weight": 0.10,
         "wind_weight": 0.25,
+        "load_weight": 0.05,
     },
 ]
 
@@ -96,9 +112,11 @@ def capacity_weighted_aggregate(
     timestamp, zone, weight_col, temperature_2m, wind_speed_10m, shortwave_radiation
     """
 
+    drop = {"timestamp", "zone", "lat", "lon", "solar_weight", "wind_weight", "load_weight"}
+
     value_cols = [
         c for c in zone_weather.columns
-        if c not in ["timestamp", "zone", "lat", "lon", weight_col]
+        if c not in drop
         and pd.api.types.is_numeric_dtype(zone_weather[c])
     ]
 
@@ -230,6 +248,7 @@ def fetch_weathernext2_earth_engine_points(
                 "lon": z["lon"],
                 "solar_weight": z["solar_weight"],
                 "wind_weight": z["wind_weight"],
+                "load_weight": z["load_weight"],
             }
 
             for var in variables:
@@ -461,6 +480,7 @@ def era5_points_to_dataframe(
         df["lon"] = z["lon"]
         df["solar_weight"] = z["solar_weight"]
         df["wind_weight"] = z["wind_weight"]
+        df["load_weight"] = z["load_weight"]
 
         keep = [
             "timestamp",
@@ -469,6 +489,7 @@ def era5_points_to_dataframe(
             "lon",
             "solar_weight",
             "wind_weight",
+            "load_weight",
             "temperature_2m_c",
             "wind_speed_10m",
             "surface_solar_radiation_downwards",
@@ -498,9 +519,18 @@ def build_capacity_weighted_weather_dataset(
 ) -> pd.DataFrame:
     """
     Builds:
-    - solar-weighted aggregate
-    - wind-weighted aggregate
-    then merges them into one dataset.
+    - solar-weighted aggregate (RES generation, solar-side)
+    - wind-weighted aggregate  (RES generation, wind-side)
+    - load-weighted aggregate  (population proxy; mainly for temperature
+      driving cooling/heating demand)
+
+    Then merges all three into one dataset.
+
+    Note: every numeric variable is weighted under all three schemes for
+    symmetry. Only `load_weighted_temperature_2m` is physically meaningful
+    on the load side; downstream feature engineering can drop the
+    not-meaningful load-weighted columns or simply ignore them in the
+    price model.
     """
 
     solar_zones = normalize_weights(
@@ -517,16 +547,28 @@ def build_capacity_weighted_weather_dataset(
         "wind_weight",
     )
 
+    load_zones = normalize_weights(
+        zone_weather[
+            ["zone", "load_weight"]
+        ].drop_duplicates().to_dict("records"),
+        "load_weight",
+    )
+
     solar_weights = pd.DataFrame(solar_zones)
     wind_weights = pd.DataFrame(wind_zones)
+    load_weights = pd.DataFrame(load_zones)
 
-    base = zone_weather.drop(columns=["solar_weight", "wind_weight"], errors="ignore")
+    base = zone_weather.drop(
+        columns=["solar_weight", "wind_weight", "load_weight"], errors="ignore"
+    )
 
     solar_df = base.merge(solar_weights, on="zone", how="left")
     wind_df = base.merge(wind_weights, on="zone", how="left")
+    load_df = base.merge(load_weights, on="zone", how="left")
 
     solar_agg = capacity_weighted_aggregate(solar_df, "solar_weight")
     wind_agg = capacity_weighted_aggregate(wind_df, "wind_weight")
+    load_agg = capacity_weighted_aggregate(load_df, "load_weight")
 
     solar_agg = solar_agg.rename(
         columns={
@@ -544,7 +586,16 @@ def build_capacity_weighted_weather_dataset(
         }
     )
 
+    load_agg = load_agg.rename(
+        columns={
+            c: f"load_weighted_{c}"
+            for c in load_agg.columns
+            if c != "timestamp"
+        }
+    )
+
     out = solar_agg.merge(wind_agg, on="timestamp", how="outer")
+    out = out.merge(load_agg, on="timestamp", how="outer")
     out = out.sort_values("timestamp")
 
     path = PROCESSED_WEATHER_DIR / output_name

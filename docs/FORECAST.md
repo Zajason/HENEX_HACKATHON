@@ -33,22 +33,39 @@ The price function is **nonlinear at regime boundaries**:
 | Normal | Mid-RL, gas on margin | Moderate, slow-moving |
 | Scarcity | High RL, evening ramp, low RES | Spike-prone, fat-tailed |
 
-A single linear or quantile model spans these regimes and bleeds error across them. Soft mixtures fix this without overfitting.
+A single linear or quantile model spans these regimes and bleeds error across them. Soft mixtures *can* fix this — but Tier 0 also captures the kinks via piecewise / tree-based features without a regime layer. The honest comparison is **kinked single-stage vs soft regime mixture**, judged on held-out pinball loss. If the mixture doesn't beat the kinked single-stage, ship Tier 0.
 
-## Tier 0 — direct quantile regression
+## Inputs contract — Option B (no leakage)
 
-Ships day 1. One global model, three quantiles.
+At inference (gate-closure noon CET D-1) the model sees only:
+- IPTO load forecast at the latest version published before noon D-1.
+- IPTO RES forecast, same vintage rule.
+- WeatherNext 2 forecast issued at the cycle that closed before noon CET D-1 (typically the 06 UTC run); ERA5 reanalysis as a backfill source for training history pre-2024.
+- Calendar features (hour, weekday, month, holiday / JJA / Easter).
+- (Tier 3 only) gas / carbon settlements from D-2.
+
+**Cleared generation mix from ENTSO-E enters only as the label for the regime classifier, never as a feature.** `res_share = res_fcst / load_fcst` is identity arithmetic from inputs the model already sees; a two-stage "predict mix → predict price" pipeline stacks errors for zero information gain.
+
+For backtest training: the same vintage rule applies. Use the latest IPTO forecast file with publish time < D-1 noon, ERA5 reanalysis for weather pre-2024, WeatherNext 2 historical-forecast archive for 2024+. ERA5 is reanalysis (post-hoc analysis), not forecast vintage — it is mildly better than the contemporaneous forecast would have been. Disclose this small upward bias on pre-2024 backtest skill in the report.
+
+## Tier 0 — single-stage quantile model with kink features
+
+Ships day 1. One global model, three quantiles, no regime layer.
 
 **Features**
-- `residual_load_mw_forecast` (from forecast load and forecast RES)
-- `hour_of_day` (one-hot or cyclical)
-- `weekday`, `is_weekend`
+- `residual_load_mw_forecast = load_fcst - res_fcst`
+- `RL_low_kink = min(RL_fcst, RL_q20)` — piecewise term that fires only when residual load is low (curtailment-prone).
+- `RL_high_kink = max(RL_fcst - RL_q80, 0)` — piecewise term that fires only when residual load is high (scarcity-prone).
+- `rl_ramp_4h_mw = RL_t - RL_{t-4h}`
+- `hour_of_day` (cyclical), `weekday`, `is_weekend`
 - `month`, `is_jja_cooling`, `is_aug_vacation`, `is_easter_window`
-- `rl_ramp_4h_mw` (`RL_t - RL_{t-4h}`)
-- `temperature_2m_c`, `shortwave_radiation`
-- *(optional, Tier 0 if cheaply available:)* `gas_price_eur_mwh`
+- Capacity-weighted weather (from [weather_sources.py](../weather_sources.py) `build_capacity_weighted_weather_dataset`):
+  - `solar_weighted_shortwave_radiation`, `solar_weighted_temperature_2m`
+  - `wind_weighted_wind_speed_10m` (and `_100m` if WeatherNext 2 publishes it natively)
+  - `load_weighted_temperature_2m` — population-weighted, drives cooling/heating load
+- *(optional, Tier 3 if cheaply available:)* `gas_price_eur_mwh`, `eua_carbon_eur_t`
 
-**Models**: three independent `sklearn.linear_model.QuantileRegressor(quantile=q, alpha=...)` for `q ∈ {0.1, 0.5, 0.9}`. Or `statsmodels.regression.quantile_regression.QuantReg`. Either is fine; fit speed matters for walk-forward backtest.
+**Models**: `lightgbm.LGBMRegressor(objective='quantile', alpha=q)` for `q ∈ {0.1, 0.5, 0.9}` — three independent fits. Tree splits handle the residual-load kinks natively; the explicit `RL_low_kink` / `RL_high_kink` features are still cheap to include and help the linear-quantile fallback. Fallback if LGBM is unavailable: three `sklearn.linear_model.QuantileRegressor(quantile=q, alpha=...)` with the explicit kink features doing the non-linear lifting.
 
 **Training data**: hourly DAM history (longer span, more samples). Apply intra-hour 15-min shape (see below) to translate hourly forecasts to 15-min.
 
@@ -127,19 +144,31 @@ This is a multiplicative correction, not a separate model. Cheap, robust, and av
 
 Restating the rule from [DATA.md](DATA.md): the forecast is trained on history but **served forecast inputs at inference**. Specifically:
 
-- Train: regress `price_realized_t` on **historical forecast** load, RES, weather (the same vintage of forecast that would have been available before D-1 gate closure for that historical date). Open-Meteo's historical-forecast API gives this for weather; IPTO's `_02` (or higher) version files give it for load/RES.
+- Train: regress `price_realized_t` on **historical forecast** load, RES, weather (the vintage that would have been available before D-1 noon CET for that historical date). WeatherNext 2 historical-forecast archive (2024+) and ERA5 reanalysis (pre-2024) cover weather; IPTO's `_02` (or latest pre-noon) version files cover load / RES.
 - Inference: feed forecast load, forecast RES, forecast weather. Never realized.
 - **Do not** train on realized RL and serve forecast RL. The two have different error characteristics; the model will be miscalibrated by exactly the forecast-error variance.
+- **Cleared mix is label-only.** ENTSO-E generation breakdown enters as the regime label in Tier 1, never as a feature in any tier.
 
 If the held-out backtest pinball loss is dramatically lower than the in-sample pinball loss on a random shuffle, you are leaking.
 
-## Calibration checks
+## Calibration and evaluation
 
-Before trusting the forecast in the optimizer:
+Forecast-quality metrics (forecast-layer only):
 
-- **Pinball loss** at q ∈ {0.1, 0.5, 0.9} on a held-out month. Compare across tiers.
-- **Coverage**: fraction of realized prices inside the [P10, P90] interval should be ~80%. Less → over-confident; more → over-wide.
-- **Bootstrap scenario calibration**: empirical CDF of realized residuals against the scenario distribution residuals, per regime. Should overlap.
+- **Pinball loss** at q ∈ {0.1, 0.5, 0.9} on a held-out walk-forward window. Primary metric for Tier 0 / Tier 1 comparison and for the gate that promotes Tier 1 over Tier 0.
+- **Coverage**: fraction of realized prices inside the [P10, P90] interval should sit ~80%. Lower → over-confident bands; higher → over-wide.
+- **Bootstrap scenario calibration** (Tier 1+): empirical CDF of realized residuals against the scenario distribution per regime. Should overlap.
+
+Strategy-quality metrics (forecast feeds optimizer feeds these — see [PLAN.md](PLAN.md)):
+
+- **Sharpe ladder** across baselines: idle, naive daily rank, Tier 0, Tier 1, perfect foresight upper bound. Annualized using √365 (battery operates daily).
+- **Sortino** alongside Sharpe — battery P&L is skewed; Sharpe punishes upside variance the same as downside, which we do not care about.
+- **Information ratio vs naive baseline** — the cleanest measure of model alpha.
+- **Capture rate vs perfect foresight** — `Tier_X_profit / perfect_foresight_profit`. Industry context for DAM batteries: 50–75% is typical.
+- **Hit rate** (fraction of trades profitable after costs), **max drawdown**, **profit per MWh throughput**.
+- **Split by regime**: summer vs winter, hourly era vs 15-min era. Hides nothing.
+
+Pinball loss measures the forecast; the Sharpe ladder measures whether the forecast translates into risk-adjusted profit. Report both — they are not redundant.
 
 ## Non-goals for the forecast layer
 
