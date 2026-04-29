@@ -62,6 +62,8 @@ Append-only. Each entry: date, decision, why, where it lives. If a decision chan
 - WeatherNext 2 + ERA5 weather sources scaffold ([weather_sources.py](../weather_sources.py)) with six Greek zones and capacity-weighted aggregates per RES type plus a load-weighted temperature aggregate.
 - One day of HEnEx DAM data captured (`2026-04-29`) in 15-min MTU; storage already participating (29 buy + 39 sell rows) — Greek standalone batteries went live in test mode this month.
 
+- Phase B B2-B3 code is present: pure single-stage LGBM quantile floor in [forecast/tier0.py](../forecast/tier0.py), rolling-origin harness in [forecast/backtest.py](../forecast/backtest.py), and CLI in [scripts/run_backtest.py](../scripts/run_backtest.py). B4 no-weather sanity run is wired via `python -m scripts.run_backtest --model tier0 --no-weather` and is blocked until Phase A writes `data/processed/history.parquet`.
+
 ## What is next
 
 See [PLAN.md](PLAN.md) for the tiered roadmap and current cursor position.

@@ -20,5 +20,12 @@ Public API:
 """
 
 from forecast.pipeline import fit_pipeline, predict_day, ForecastPipeline
+from forecast.tier0 import fit_tier0_model, Tier0Model
 
-__all__ = ["fit_pipeline", "predict_day", "ForecastPipeline"]
+__all__ = [
+    "fit_pipeline",
+    "predict_day",
+    "ForecastPipeline",
+    "fit_tier0_model",
+    "Tier0Model",
+]
