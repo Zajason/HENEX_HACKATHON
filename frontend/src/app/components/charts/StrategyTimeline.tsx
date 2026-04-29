@@ -12,10 +12,10 @@ export function StrategyTimeline() {
   return (
     <div className="relative">
       {/* Timeline */}
-      <div className="flex items-center gap-1 mb-4">
+      <div className="mb-4 flex items-center gap-1 overflow-x-auto pb-1">
         {Array.from({ length: 24 }).map((_, i) => (
-          <div key={i} className="flex-1 relative">
-            <div className="h-16 rounded border border-white/5 bg-white/[0.02] flex items-center justify-center text-xs text-gray-500">
+          <div key={i} className="relative min-w-10 flex-1">
+            <div className="flex h-14 items-center justify-center rounded border border-slate-700/40 bg-white/[0.018] text-xs text-slate-500">
               {i.toString().padStart(2, '0')}
             </div>
           </div>
@@ -34,37 +34,37 @@ export function StrategyTimeline() {
           return (
             <div
               key={index}
-              className="absolute h-16 rounded-xl cursor-pointer transition-all duration-200"
+              className="absolute h-16 cursor-pointer rounded-lg transition-all duration-200"
               style={{
                 left: `${left}%`,
                 width: `${width}%`,
                 background: strategy.type === 'charge'
-                  ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.5) 100%)'
-                  : 'linear-gradient(90deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.5) 100%)',
-                border: `1px solid ${strategy.type === 'charge' ? 'rgba(59, 130, 246, 0.5)' : 'rgba(16, 185, 129, 0.5)'}`,
-                transform: hoveredIndex === index ? 'scale(1.02)' : 'scale(1)',
+                  ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(56, 189, 248, 0.32) 100%)'
+                  : 'linear-gradient(90deg, rgba(110, 231, 183, 0.16) 0%, rgba(110, 231, 183, 0.32) 100%)',
+                border: `1px solid ${strategy.type === 'charge' ? 'rgba(56, 189, 248, 0.45)' : 'rgba(110, 231, 183, 0.45)'}`,
+                transform: hoveredIndex === index ? 'translateY(-2px)' : 'translateY(0)',
                 boxShadow: hoveredIndex === index
-                  ? `0 0 20px ${strategy.type === 'charge' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`
+                  ? `0 14px 30px ${strategy.type === 'charge' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(110, 231, 183, 0.12)'}`
                   : 'none'
               }}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
             >
               <div className="flex flex-col items-center justify-center h-full px-4">
-                <div className="text-white font-medium mb-1">
-                  {strategy.type === 'charge' ? '⚡ Charge' : '💰 Discharge'}
+                <div className="mb-1 font-medium text-white">
+                  {strategy.type === 'charge' ? 'Charge' : 'Discharge'}
                 </div>
-                <div className="text-xs text-gray-300">
-                  +€{strategy.profit}
+                <div className="text-xs text-slate-300">
+                  €{strategy.profit} margin
                 </div>
               </div>
 
               {/* Tooltip */}
               {hoveredIndex === index && (
-                <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-gray-900 border border-white/20 rounded-lg p-3 text-sm whitespace-nowrap z-10">
+                <div className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-600/60 bg-[#0b1016] p-3 text-sm shadow-xl">
                   <div className="text-white mb-1">{strategy.time}</div>
-                  <div className="text-green-400">Expected: €{strategy.profit}</div>
-                  <div className="text-blue-400">Z-score: {strategy.zscore}</div>
+                  <div className="text-emerald-200">Expected: €{strategy.profit}</div>
+                  <div className="text-sky-300">Z-score: {strategy.zscore}</div>
                 </div>
               )}
             </div>
@@ -75,12 +75,12 @@ export function StrategyTimeline() {
       {/* Legend */}
       <div className="flex items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-blue-500/50 border border-blue-500"></div>
-          <span className="text-gray-400">Charging</span>
+          <div className="h-3 w-3 rounded-sm border border-sky-300 bg-sky-300/30"></div>
+          <span className="text-slate-400">Charging below median</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-green-500/50 border border-green-500"></div>
-          <span className="text-gray-400">Discharging</span>
+          <div className="h-3 w-3 rounded-sm border border-emerald-300 bg-emerald-300/30"></div>
+          <span className="text-slate-400">Selling peak spread</span>
         </div>
       </div>
     </div>

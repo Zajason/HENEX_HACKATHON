@@ -1,29 +1,29 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { LayoutDashboard, Battery, Target, BarChart3, Settings } from "lucide-react";
+import { BarChart3, Battery, Gauge, LayoutDashboard, Settings, Target } from "lucide-react";
 
 export function Layout() {
   const location = useLocation();
 
   const navItems = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/config", label: "Battery Config", icon: Battery },
-    { path: "/strategy", label: "Strategy", icon: Target },
+    { path: "/", label: "Live Desk", icon: LayoutDashboard },
+    { path: "/config", label: "Assets", icon: Battery },
+    { path: "/strategy", label: "Dispatch Plan", icon: Target },
     { path: "/backtest", label: "Backtest", icon: BarChart3 },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#0B0F14' }}>
+    <div className="min-h-screen bg-[#080c10] text-slate-100">
       {/* Sidebar */}
-      <aside className="border-b border-white/5 p-4 md:fixed md:left-0 md:top-0 md:h-full md:w-64 md:border-b-0 md:border-r md:p-6" style={{ backgroundColor: '#0B0F14' }}>
+      <aside className="border-b border-slate-700/30 bg-[#0b1016] p-4 md:fixed md:left-0 md:top-0 md:h-full md:w-64 md:border-b-0 md:border-r md:p-6">
         <div className="mb-4 md:mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <Battery className="w-6 h-6 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/30 bg-emerald-300/10">
+              <Gauge className="h-5 w-5 text-emerald-200" />
             </div>
             <div>
-              <div className="text-white font-semibold">Battery AI</div>
-              <div className="text-xs text-gray-400">Energy Trading</div>
+              <div className="font-semibold text-white">HENEX Dispatch</div>
+              <div className="text-xs text-slate-400">Battery trading desk</div>
             </div>
           </div>
         </div>
@@ -36,13 +36,13 @@ export function Layout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 transition-all ${
+                className={`flex shrink-0 items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'border-emerald-300/30 bg-emerald-300/10 text-white shadow-[inset_3px_0_0_rgba(110,231,183,0.7)]'
+                    : 'border-transparent text-slate-400 hover:border-slate-700/70 hover:bg-white/[0.03] hover:text-white'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="h-4 w-4" />
                 <span>{item.label}</span>
               </Link>
             );
@@ -50,12 +50,13 @@ export function Layout() {
         </nav>
 
         <div className="mt-4 md:absolute md:bottom-6 md:left-6 md:right-6 md:mt-0">
-          <div className="p-4 rounded-xl border border-white/5" style={{ backgroundColor: '#141920' }}>
+          <div className="surface-muted rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-              <span className="text-xs text-gray-400">System Status</span>
+              <div className="h-2 w-2 rounded-full bg-emerald-300"></div>
+              <span className="text-xs uppercase tracking-wide text-slate-500">Market link</span>
             </div>
-            <div className="text-sm text-white">All Systems Operational</div>
+            <div className="text-sm text-white">Forecasts synced</div>
+            <div className="mt-1 text-xs text-slate-500">Last update 08:45 EET</div>
           </div>
         </div>
       </aside>

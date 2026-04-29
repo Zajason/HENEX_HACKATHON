@@ -46,43 +46,44 @@ export function Backtest() {
   return (
     <div className="p-4 md:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl text-white mb-2">Backtest Results</h1>
-        <p className="text-gray-400">Historical performance analysis (Last 90 days)</p>
+        <div className="eyebrow mb-3">Historical validation</div>
+        <h1 className="mb-2 text-3xl font-semibold text-white">Backtest ledger</h1>
+        <p className="text-slate-400">Rolling 90-day replay against recorded day-ahead prices.</p>
       </div>
 
       {/* Summary Cards */}
       <div className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <div className="text-sm text-gray-400 mb-2">Total Profit</div>
-          <div className="text-2xl text-white mb-2">€308,450</div>
-          <div className="flex items-center gap-1 text-xs text-green-400">
+        <div className="surface rounded-lg p-5">
+          <div className="mb-2 text-sm text-slate-400">Total margin</div>
+          <div className="mb-2 text-2xl font-semibold text-white">€308,450</div>
+          <div className="flex items-center gap-1 text-xs text-emerald-200">
             <TrendingUp className="w-3 h-3" />
             +15.2% vs forecast
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <div className="text-sm text-gray-400 mb-2">Avg Daily Profit</div>
-          <div className="text-2xl text-white mb-2">€3,427</div>
-          <div className="flex items-center gap-1 text-xs text-green-400">
+        <div className="surface rounded-lg p-5">
+          <div className="mb-2 text-sm text-slate-400">Avg daily margin</div>
+          <div className="mb-2 text-2xl font-semibold text-white">€3,427</div>
+          <div className="flex items-center gap-1 text-xs text-emerald-200">
             <TrendingUp className="w-3 h-3" />
             +8.4% improvement
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <div className="text-sm text-gray-400 mb-2">Win Rate</div>
-          <div className="text-2xl text-white mb-2">87.3%</div>
-          <div className="flex items-center gap-1 text-xs text-blue-400">
+        <div className="surface rounded-lg p-5">
+          <div className="mb-2 text-sm text-slate-400">Profitable trades</div>
+          <div className="mb-2 text-2xl font-semibold text-white">87.3%</div>
+          <div className="flex items-center gap-1 text-xs text-sky-200">
             <TrendingUp className="w-3 h-3" />
             262 / 300 trades
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <div className="text-sm text-gray-400 mb-2">Max Drawdown</div>
-          <div className="text-2xl text-white mb-2">€380</div>
-          <div className="flex items-center gap-1 text-xs text-yellow-400">
+        <div className="surface rounded-lg p-5">
+          <div className="mb-2 text-sm text-slate-400">Max drawdown</div>
+          <div className="mb-2 text-2xl font-semibold text-white">€380</div>
+          <div className="flex items-center gap-1 text-xs text-amber-200">
             <AlertTriangle className="w-3 h-3" />
             -0.12% of total
           </div>
@@ -91,8 +92,8 @@ export function Backtest() {
 
       {/* Charts Row 1 */}
       <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <h3 className="text-white mb-4">Cumulative Profit Over Time</h3>
+        <div className="surface rounded-lg p-6">
+          <h3 className="mb-4 text-white">Cumulative margin</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={profitOverTime}>
               <defs>
@@ -101,72 +102,72 @@ export function Backtest() {
                   <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="date" stroke="#6B7280" tick={{ fill: '#9CA3AF' }} />
-              <YAxis stroke="#6B7280" tick={{ fill: '#9CA3AF' }} />
+              <CartesianGrid strokeDasharray="2 6" stroke="rgba(148,163,184,0.10)" />
+              <XAxis dataKey="date" stroke="#475569" tick={{ fill: '#94A3B8' }} />
+              <YAxis stroke="#475569" tick={{ fill: '#94A3B8' }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
+                  backgroundColor: '#0F1720',
+                  border: '1px solid rgba(148,163,184,0.22)',
+                  borderRadius: '6px',
                   color: '#fff'
                 }}
               />
               <Line
                 type="monotone"
                 dataKey="profit"
-                stroke="#10B981"
+                stroke="#6EE7B7"
                 strokeWidth={3}
-                dot={{ fill: '#10B981', r: 4 }}
+                dot={{ fill: '#6EE7B7', r: 4 }}
                 fill="url(#profitLineGradient)"
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <h3 className="text-white mb-4">Daily Profit Distribution</h3>
+        <div className="surface rounded-lg p-6">
+          <h3 className="mb-4 text-white">Daily margin distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dailyProfitDistribution}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="range" stroke="#6B7280" tick={{ fill: '#9CA3AF' }} />
-              <YAxis stroke="#6B7280" tick={{ fill: '#9CA3AF' }} label={{ value: 'Days', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }} />
+              <CartesianGrid strokeDasharray="2 6" stroke="rgba(148,163,184,0.10)" />
+              <XAxis dataKey="range" stroke="#475569" tick={{ fill: '#94A3B8' }} />
+              <YAxis stroke="#475569" tick={{ fill: '#94A3B8' }} label={{ value: 'Days', angle: -90, position: 'insideLeft', fill: '#94A3B8' }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1F2937',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
+                  backgroundColor: '#0F1720',
+                  border: '1px solid rgba(148,163,184,0.22)',
+                  borderRadius: '6px',
                   color: '#fff'
                 }}
               />
-              <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="count" fill="#38BDF8" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Drawdown Chart */}
-      <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-        <h3 className="text-white mb-4">Worst-Case Drawdown Analysis</h3>
+      <div className="surface rounded-lg p-6">
+        <h3 className="mb-4 text-white">Worst-case drawdown</h3>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={drawdownData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="date" stroke="#6B7280" tick={{ fill: '#9CA3AF' }} />
-            <YAxis stroke="#6B7280" tick={{ fill: '#9CA3AF' }} label={{ value: '€', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }} />
+            <CartesianGrid strokeDasharray="2 6" stroke="rgba(148,163,184,0.10)" />
+            <XAxis dataKey="date" stroke="#475569" tick={{ fill: '#94A3B8' }} />
+            <YAxis stroke="#475569" tick={{ fill: '#94A3B8' }} label={{ value: '€', angle: -90, position: 'insideLeft', fill: '#94A3B8' }} />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1F2937',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
+                backgroundColor: '#0F1720',
+                border: '1px solid rgba(148,163,184,0.22)',
+                borderRadius: '6px',
                 color: '#fff'
               }}
             />
             <Line
               type="monotone"
               dataKey="drawdown"
-              stroke="#EF4444"
+              stroke="#FB7185"
               strokeWidth={2}
-              dot={{ fill: '#EF4444', r: 3 }}
+              dot={{ fill: '#FB7185', r: 3 }}
             />
           </LineChart>
         </ResponsiveContainer>

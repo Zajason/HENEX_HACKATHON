@@ -52,54 +52,55 @@ export function Strategy() {
   return (
     <div className="p-4 md:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl text-white mb-2">Trading Strategy</h1>
-        <p className="text-gray-400">Optimal charge/discharge schedule with decision rationale</p>
+        <div className="eyebrow mb-3">Dispatch plan</div>
+        <h1 className="mb-2 text-3xl font-semibold text-white">Trades under review</h1>
+        <p className="text-slate-400">Charge and discharge windows ranked by spread, confidence, and degradation cost.</p>
       </div>
 
       {/* Strategy Table */}
-      <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl mb-6" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
+      <div className="surface mb-6 rounded-lg p-6">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-left text-sm text-gray-400 pb-3 pr-4">Status</th>
-                <th className="text-left text-sm text-gray-400 pb-3 pr-4">Charge Time</th>
-                <th className="text-left text-sm text-gray-400 pb-3 pr-4">Discharge Time</th>
-                <th className="text-left text-sm text-gray-400 pb-3 pr-4">Spread</th>
-                <th className="text-left text-sm text-gray-400 pb-3 pr-4">Z-Score</th>
-                <th className="text-left text-sm text-gray-400 pb-3">Profit</th>
+              <tr className="border-b border-slate-700/40">
+                <th className="pb-3 pr-4 text-left text-sm text-slate-400">Status</th>
+                <th className="pb-3 pr-4 text-left text-sm text-slate-400">Charge window</th>
+                <th className="pb-3 pr-4 text-left text-sm text-slate-400">Discharge window</th>
+                <th className="pb-3 pr-4 text-left text-sm text-slate-400">Spread</th>
+                <th className="pb-3 pr-4 text-left text-sm text-slate-400">Z-score</th>
+                <th className="pb-3 text-left text-sm text-slate-400">Margin</th>
               </tr>
             </thead>
             <tbody>
               {strategies.map((strategy, index) => (
                 <tr
                   key={index}
-                  className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${
+                  className={`border-b border-slate-700/30 transition-colors hover:bg-white/[0.025] ${
                     strategy.status === 'skipped' ? 'opacity-40' : ''
                   }`}
                 >
                   <td className="py-4 pr-4">
                     {strategy.status === 'selected' ? (
-                      <div className="flex items-center gap-2 text-green-400">
-                        <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <div className="flex items-center gap-2 text-emerald-200">
+                        <div className="h-2 w-2 rounded-full bg-emerald-300"></div>
                         <span className="text-sm">Selected</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <div className="h-2 w-2 rounded-full bg-slate-500"></div>
                         <span className="text-sm">Skipped</span>
                       </div>
                     )}
                   </td>
                   <td className="py-4 pr-4">
                     <div className="flex items-center gap-2">
-                      <ArrowDownCircle className="w-4 h-4 text-blue-400" />
+                      <ArrowDownCircle className="h-4 w-4 text-sky-300" />
                       <span className="text-white">{strategy.chargeTime}</span>
                     </div>
                   </td>
                   <td className="py-4 pr-4">
                     <div className="flex items-center gap-2">
-                      <ArrowUpCircle className="w-4 h-4 text-green-400" />
+                      <ArrowUpCircle className="h-4 w-4 text-emerald-300" />
                       <span className="text-white">{strategy.dischargeTime}</span>
                     </div>
                   </td>
@@ -109,16 +110,16 @@ export function Strategy() {
                   <td className="py-4 pr-4">
                     <span className={`px-2 py-1 rounded text-sm ${
                       strategy.zscore >= 2.5
-                        ? 'bg-green-500/20 text-green-400'
+                        ? 'bg-emerald-300/10 text-emerald-200'
                         : strategy.zscore >= 2.0
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-red-500/20 text-red-400'
+                        ? 'bg-amber-300/10 text-amber-200'
+                        : 'bg-rose-300/10 text-rose-200'
                     }`}>
                       {strategy.zscore.toFixed(1)}σ
                     </span>
                   </td>
                   <td className="py-4">
-                    <span className={strategy.status === 'selected' ? 'text-green-400' : 'text-gray-500'}>
+                    <span className={strategy.status === 'selected' ? 'text-emerald-200' : 'text-slate-500'}>
                       {strategy.profit}
                     </span>
                   </td>
@@ -134,21 +135,21 @@ export function Strategy() {
         {strategies.filter(s => s.status === 'selected').map((strategy, index) => (
           <div
             key={index}
-            className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 backdrop-blur-xl"
+            className="rounded-lg border border-emerald-300/20 bg-emerald-300/[0.055] p-4"
           >
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-1">
-                <AlertCircle className="w-5 h-5 text-green-400" />
+              <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-emerald-300/12">
+                <AlertCircle className="h-5 w-5 text-emerald-200" />
               </div>
               <div className="flex-1">
                 <div className="text-white mb-1">
                   Trade {index + 1}: {strategy.chargeTime} → {strategy.dischargeTime}
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-slate-400">
                   {strategy.reason}
                 </div>
               </div>
-              <div className="text-green-400 font-medium">
+              <div className="font-medium text-emerald-200">
                 {strategy.profit}
               </div>
             </div>
@@ -158,17 +159,17 @@ export function Strategy() {
         {strategies.filter(s => s.status === 'skipped').map((strategy, index) => (
           <div
             key={index}
-            className="rounded-xl border border-gray-500/20 bg-gray-500/5 p-4 backdrop-blur-xl opacity-60"
+            className="rounded-lg border border-slate-600/20 bg-slate-500/[0.04] p-4 opacity-60"
           >
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center flex-shrink-0 mt-1">
-                <AlertCircle className="w-5 h-5 text-gray-400" />
+              <div className="mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-slate-500/20">
+                <AlertCircle className="h-5 w-5 text-slate-400" />
               </div>
               <div className="flex-1">
-                <div className="text-gray-400 mb-1">
+                <div className="mb-1 text-slate-400">
                   Skipped: {strategy.chargeTime} → {strategy.dischargeTime}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-slate-500">
                   {strategy.reason}
                 </div>
               </div>

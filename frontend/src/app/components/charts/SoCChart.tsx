@@ -33,36 +33,36 @@ export function SoCChart() {
       <AreaChart data={data}>
         <defs>
           <linearGradient id="socGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-            <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.1}/>
+            <stop offset="5%" stopColor="#6EE7B7" stopOpacity={0.62}/>
+            <stop offset="95%" stopColor="#0F1720" stopOpacity={0.04}/>
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+        <CartesianGrid strokeDasharray="2 6" stroke="rgba(148,163,184,0.10)" />
         <XAxis
           dataKey="time"
-          stroke="#6B7280"
-          tick={{ fill: '#9CA3AF' }}
+          stroke="#475569"
+          tick={{ fill: '#94A3B8' }}
           interval={3}
         />
         <YAxis
-          stroke="#6B7280"
-          tick={{ fill: '#9CA3AF' }}
-          label={{ value: 'SoC %', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
+          stroke="#475569"
+          tick={{ fill: '#94A3B8' }}
+          label={{ value: 'SoC %', angle: -90, position: 'insideLeft', fill: '#94A3B8' }}
           domain={[0, 100]}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: '#1F2937',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px',
+            backgroundColor: '#0F1720',
+            border: '1px solid rgba(148,163,184,0.22)',
+            borderRadius: '6px',
             color: '#fff'
           }}
-          labelStyle={{ color: '#9CA3AF' }}
+          labelStyle={{ color: '#CBD5E1' }}
         />
         <Area
           type="monotone"
           dataKey="soc"
-          stroke="#3B82F6"
+          stroke="#6EE7B7"
           strokeWidth={3}
           fill="url(#socGradient)"
           name="State of Charge"

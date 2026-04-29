@@ -30,90 +30,91 @@ export function BatteryConfig() {
   return (
     <div className="p-4 md:p-8">
       <div className="mb-8">
-        <h1 className="text-3xl text-white mb-2">Battery Configuration</h1>
-        <p className="text-gray-400">Configure your battery system parameters</p>
+        <div className="eyebrow mb-3">Asset setup</div>
+        <h1 className="mb-2 text-3xl font-semibold text-white">Battery fleet</h1>
+        <p className="text-slate-400">Tune plant limits, efficiencies, and trading posture before dispatch.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Left Side - Form */}
-        <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-          <h3 className="text-white mb-6 flex items-center gap-2">
+        <div className="surface rounded-lg p-6">
+          <h3 className="mb-6 flex items-center gap-2 text-white">
             <Battery className="w-5 h-5" />
-            System Parameters
+            Plant parameters
           </h3>
 
           <div className="space-y-6">
             <div>
-              <label className="text-sm text-gray-400 mb-2 block">Number of Batteries</label>
+              <label className="mb-2 block text-sm text-slate-400">Number of batteries</label>
               <input
                 type="number"
                 value={config.batteries}
                 onChange={(e) => setConfig({ ...config, batteries: parseInt(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                className="field-control"
               />
             </div>
 
             <div>
-              <label className="text-sm text-gray-400 mb-2 block">Capacity (MWh)</label>
+              <label className="mb-2 block text-sm text-slate-400">Capacity per unit (MWh)</label>
               <input
                 type="number"
                 value={config.capacity}
                 onChange={(e) => setConfig({ ...config, capacity: parseFloat(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                className="field-control"
               />
             </div>
 
             <div>
-              <label className="text-sm text-gray-400 mb-2 block">Power (MW)</label>
+              <label className="mb-2 block text-sm text-slate-400">Power limit (MW)</label>
               <input
                 type="number"
                 value={config.power}
                 onChange={(e) => setConfig({ ...config, power: parseFloat(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                className="field-control"
               />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Charge Efficiency (%)</label>
+                <label className="mb-2 block text-sm text-slate-400">Charge efficiency (%)</label>
                 <input
                   type="number"
                   value={config.chargeEff}
                   onChange={(e) => setConfig({ ...config, chargeEff: parseFloat(e.target.value) })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  className="field-control"
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-400 mb-2 block">Discharge Efficiency (%)</label>
+                <label className="mb-2 block text-sm text-slate-400">Discharge efficiency (%)</label>
                 <input
                   type="number"
                   value={config.dischargeEff}
                   onChange={(e) => setConfig({ ...config, dischargeEff: parseFloat(e.target.value) })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  className="field-control"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm text-gray-400 mb-2 block">Degradation Cost (€/MWh)</label>
+              <label className="mb-2 block text-sm text-slate-400">Degradation cost (€/MWh)</label>
               <input
                 type="number"
                 step="0.1"
                 value={config.degradationCost}
                 onChange={(e) => setConfig({ ...config, degradationCost: parseFloat(e.target.value) })}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                className="field-control"
               />
             </div>
 
             <div>
-              <label className="text-sm text-gray-400 mb-2 block">Trading Mode</label>
+              <label className="mb-2 block text-sm text-slate-400">Trading posture</label>
               <div className="flex gap-2">
                 <button
                   onClick={() => setConfig({ ...config, mode: 'conservative' })}
                   className={`flex-1 py-3 px-4 rounded-lg transition-all ${
                     config.mode === 'conservative'
-                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                      ? 'border border-sky-300/50 bg-sky-300/15 text-sky-100'
+                      : 'border border-slate-700/50 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
                   }`}
                 >
                   Conservative
@@ -122,8 +123,8 @@ export function BatteryConfig() {
                   onClick={() => setConfig({ ...config, mode: 'aggressive' })}
                   className={`flex-1 py-3 px-4 rounded-lg transition-all ${
                     config.mode === 'aggressive'
-                      ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                      ? 'border border-amber-300/50 bg-amber-300/15 text-amber-100'
+                      : 'border border-slate-700/50 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
                   }`}
                 >
                   Aggressive
@@ -131,32 +132,32 @@ export function BatteryConfig() {
               </div>
             </div>
 
-            <button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity">
-              Save Configuration
+            <button className="w-full rounded-lg border border-emerald-300/40 bg-emerald-300/15 px-4 py-3 text-emerald-100 transition-colors hover:bg-emerald-300/20">
+              Save fleet setup
             </button>
           </div>
         </div>
 
         {/* Right Side - Preview */}
         <div className="space-y-6">
-          <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
-            <h3 className="text-white mb-4 flex items-center gap-2">
+          <div className="surface rounded-lg p-6">
+            <h3 className="mb-4 flex items-center gap-2 text-white">
               <TrendingUp className="w-5 h-5" />
-              Estimated Performance
+              Dispatch preview
             </h3>
 
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="p-4 rounded-lg bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/30">
-                <div className="text-sm text-green-400 mb-1">Daily Profit</div>
+              <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
+                <div className="mb-1 text-sm text-emerald-200">Daily margin</div>
                 <div className="text-2xl text-white">€{estimatedProfit.toLocaleString()}</div>
               </div>
-              <div className="p-4 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30">
-                <div className="text-sm text-blue-400 mb-1">Total Capacity</div>
+              <div className="rounded-lg border border-sky-300/25 bg-sky-300/10 p-4">
+                <div className="mb-1 text-sm text-sky-200">Total capacity</div>
                 <div className="text-2xl text-white">{config.batteries * config.capacity} MWh</div>
               </div>
             </div>
 
-            <div className="text-sm text-gray-400 mb-2">Profit Trajectory</div>
+            <div className="mb-2 text-sm text-slate-400">Margin trajectory</div>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={previewData}>
                 <defs>
@@ -165,14 +166,14 @@ export function BatteryConfig() {
                     <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="hour" stroke="#6B7280" tick={{ fill: '#9CA3AF' }} />
-                <YAxis stroke="#6B7280" tick={{ fill: '#9CA3AF' }} />
+                <CartesianGrid strokeDasharray="2 6" stroke="rgba(148,163,184,0.10)" />
+                <XAxis dataKey="hour" stroke="#475569" tick={{ fill: '#94A3B8' }} />
+                <YAxis stroke="#475569" tick={{ fill: '#94A3B8' }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
+                    backgroundColor: '#0F1720',
+                    border: '1px solid rgba(148,163,184,0.22)',
+                    borderRadius: '6px',
                     color: '#fff'
                   }}
                 />
@@ -187,24 +188,24 @@ export function BatteryConfig() {
             </ResponsiveContainer>
           </div>
 
-          <div className="rounded-2xl border border-white/5 p-6 backdrop-blur-xl" style={{ backgroundColor: 'rgba(20, 25, 32, 0.6)' }}>
+          <div className="surface rounded-lg p-6">
             <h3 className="text-white mb-4">System Summary</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Round-trip Efficiency</span>
+                <span className="text-slate-400">Round-trip efficiency</span>
                 <span className="text-white">{((config.chargeEff * config.dischargeEff) / 100).toFixed(1)}%</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Max Daily Cycles</span>
+                <span className="text-slate-400">Max daily cycles</span>
                 <span className="text-white">{Math.floor(24 / (config.capacity / config.power))}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Degradation per Cycle</span>
+                <span className="text-slate-400">Degradation per cycle</span>
                 <span className="text-white">€{(config.degradationCost * config.capacity * config.batteries).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Trading Strategy</span>
-                <span className={config.mode === 'aggressive' ? 'text-purple-400' : 'text-blue-400'}>
+                <span className="text-slate-400">Trading posture</span>
+                <span className={config.mode === 'aggressive' ? 'text-amber-200' : 'text-sky-200'}>
                   {config.mode.charAt(0).toUpperCase() + config.mode.slice(1)}
                 </span>
               </div>

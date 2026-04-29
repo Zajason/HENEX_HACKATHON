@@ -47,29 +47,29 @@ const decisions = [
 
 export function DecisionLog() {
   return (
-    <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+    <div className="custom-scrollbar max-h-80 space-y-2 overflow-y-auto pr-2">
       {decisions.map((decision, index) => (
         <div
           key={index}
-          className="p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all"
+          className="rounded-lg border border-slate-700/40 bg-white/[0.02] p-3 transition-all hover:border-slate-600/80 hover:bg-white/[0.04]"
         >
           <div className="flex items-start justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-500" />
+              <Clock className="h-4 w-4 text-slate-500" />
               <span className="text-sm text-white">{decision.time}</span>
               <span className={`px-2 py-0.5 rounded text-xs ${
-                decision.type === 'success' ? 'bg-green-500/20 text-green-400' :
-                decision.type === 'charge' ? 'bg-blue-500/20 text-blue-400' :
-                'bg-gray-500/20 text-gray-400'
+                decision.type === 'success' ? 'bg-emerald-300/10 text-emerald-200' :
+                decision.type === 'charge' ? 'bg-sky-300/10 text-sky-200' :
+                'bg-slate-500/20 text-slate-400'
               }`}>
                 {decision.action}
               </span>
             </div>
             {decision.profit > 0 && (
-              <span className="text-sm text-green-400">+€{decision.profit}</span>
+              <span className="text-sm text-emerald-200">+€{decision.profit}</span>
             )}
           </div>
-          <div className="text-xs text-gray-400 ml-6">
+          <div className="ml-6 text-xs text-slate-400">
             {decision.reason}
           </div>
         </div>
