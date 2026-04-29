@@ -1,15 +1,51 @@
 from pathlib import Path
 from datetime import datetime
+import json
+import zipfile
+
 import requests
 import pandas as pd
+import yfinance as yf
+from bs4 import BeautifulSoup
+
 
 BASE_DIR = Path(__file__).resolve().parent
+
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 
-RAW_DIR.mkdir(parents=True, exist_ok=True)
-PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+ARCHIVE_DIR = RAW_DIR / "henex_archive"
+ARCHIVE_EXTRACTED_DIR = ARCHIVE_DIR / "extracted"
 
+MACRO_DIR = RAW_DIR / "macro"
+
+for directory in [
+    RAW_DIR,
+    PROCESSED_DIR,
+    ARCHIVE_DIR,
+    ARCHIVE_EXTRACTED_DIR,
+    MACRO_DIR,
+]:
+    directory.mkdir(parents=True, exist_ok=True)
+
+
+# =========================
+# Config
+# =========================
+
+USE_MACRO_DRIVERS = True
+
+MACRO_SYMBOLS = {
+    "ttf_gas_proxy": "TTF=F",
+    "eua_carbon_proxy": "^ICEEUA",
+}
+
+HENEX_ARCHIVE_URL = "https://www.enexgroup.gr/dam-idm-archive"
+
+
+# =========================
+# Generic downloader
+# =========================
 
 def download_file(url: str, output_path: Path, overwrite: bool = False) -> Path:
     if output_path.exists() and not overwrite:
@@ -25,6 +61,10 @@ def download_file(url: str, output_path: Path, overwrite: bool = False) -> Path:
     output_path.write_bytes(r.content)
     return output_path
 
+
+# =========================
+# Daily URL builders
+# =========================
 
 def build_henex_dam_url(date: str, version: str = "01") -> str:
     d = datetime.strptime(date, "%Y-%m-%d")
@@ -75,6 +115,10 @@ def build_open_meteo_url(
     )
 
 
+# =========================
+# Daily download functions
+# =========================
+
 def download_henex_dam(date: str) -> Path:
     url = build_henex_dam_url(date)
     path = RAW_DIR / f"{date}_henex_dam.xlsx"
@@ -99,6 +143,10 @@ def download_open_meteo(date: str) -> Path:
     return download_file(url, path)
 
 
+# =========================
+# Inspection helper
+# =========================
+
 def inspect_excel(path: Path):
     xls = pd.ExcelFile(path)
     print(f"\nFile: {path.name}")
@@ -110,6 +158,10 @@ def inspect_excel(path: Path):
         print(df.head(10))
         print("Columns:", list(df.columns))
 
+
+# =========================
+# Parsers
+# =========================
 
 def parse_henex_dam(path: Path) -> pd.DataFrame:
     df = pd.read_excel(path)
@@ -141,13 +193,15 @@ def parse_henex_dam(path: Path) -> pd.DataFrame:
     df["timestamp"] = pd.to_datetime(df["DELIVERY_MTU"], errors="coerce")
     df = df.dropna(subset=["timestamp"])
 
-    df = df.rename(columns={
-        "MCP": "dam_price_eur_mwh",
-        "DELIVERY_DURATION": "delivery_duration",
-        "TOTAL_TRADED_VOLUME": "total_traded_volume_mwh",
-        "TOTAL_VOLUME": "total_volume_mwh",
-        "TRADED_VOLUME": "traded_volume_mwh",
-    })
+    df = df.rename(
+        columns={
+            "MCP": "dam_price_eur_mwh",
+            "DELIVERY_DURATION": "delivery_duration",
+            "TOTAL_TRADED_VOLUME": "total_traded_volume_mwh",
+            "TOTAL_VOLUME": "total_volume_mwh",
+            "TRADED_VOLUME": "traded_volume_mwh",
+        }
+    )
 
     df["timestamp"] = df["timestamp"].dt.tz_localize(None)
 
@@ -157,7 +211,7 @@ def parse_henex_dam(path: Path) -> pd.DataFrame:
 def parse_ipto_forecast(
     path: Path,
     value_name: str,
-    date: str | None = None
+    date: str | None = None,
 ) -> pd.DataFrame:
     raw = pd.read_excel(path, header=None)
 
@@ -181,34 +235,139 @@ def parse_ipto_forecast(
     timestamps = pd.date_range(
         start=start,
         periods=len(values),
-        freq="15min"
+        freq="15min",
     )
 
-    return pd.DataFrame({
-        "timestamp": timestamps,
-        value_name: values
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            value_name: values,
+        }
+    )
 
 
 def parse_open_meteo(path: Path) -> pd.DataFrame:
-    import json
-
     with open(path, "r") as f:
         data = json.load(f)
 
     if "hourly" not in data:
-        raise ValueError(f"No 'hourly' field found in {path.name}. Response keys: {list(data.keys())}")
+        raise ValueError(
+            f"No 'hourly' field found in {path.name}. "
+            f"Response keys: {list(data.keys())}"
+        )
 
     hourly = data["hourly"]
 
-    df = pd.DataFrame({
-        "timestamp": pd.to_datetime(hourly["time"]),
-        "temperature_2m_c": hourly.get("temperature_2m"),
-        "wind_speed_10m": hourly.get("wind_speed_10m"),
-        "shortwave_radiation": hourly.get("shortwave_radiation"),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(hourly["time"]),
+            "temperature_2m_c": hourly.get("temperature_2m"),
+            "wind_speed_10m": hourly.get("wind_speed_10m"),
+            "shortwave_radiation": hourly.get("shortwave_radiation"),
+        }
+    )
 
-    return df
+
+# =========================
+# Optional macro drivers
+# Gas + carbon public proxies
+# =========================
+
+def download_macro_history(
+    start_date: str = "2023-01-01",
+    end_date: str | None = None,
+    overwrite: bool = False,
+) -> pd.DataFrame:
+    if end_date is None:
+        end_date = pd.Timestamp.today().strftime("%Y-%m-%d")
+
+    output_path = MACRO_DIR / f"macro_drivers_{start_date}_to_{end_date}.csv"
+
+    if output_path.exists() and not overwrite:
+        print(f"[CACHE] {output_path.name}")
+        return pd.read_csv(output_path, parse_dates=["date"])
+
+    macro_frames = []
+
+    for feature_name, ticker in MACRO_SYMBOLS.items():
+        print(f"[MACRO DOWNLOAD] {feature_name} from {ticker}")
+
+        try:
+            hist = yf.download(
+                ticker,
+                start=start_date,
+                end=end_date,
+                progress=False,
+                auto_adjust=False,
+            )
+
+            if hist.empty:
+                print(f"[WARNING] No data returned for {ticker}")
+                continue
+
+            # Fix yfinance multi-index columns
+            if isinstance(hist.columns, pd.MultiIndex):
+                hist.columns = hist.columns.get_level_values(0)
+
+            hist = hist.reset_index()
+
+            date_col = "Date" if "Date" in hist.columns else "Datetime"
+            close_col = "Adj Close" if "Adj Close" in hist.columns else "Close"
+
+            out = hist[[date_col, close_col]].copy()
+
+            out.columns = ["date", feature_name]
+            out["date"] = pd.to_datetime(out["date"]).dt.date
+
+            macro_frames.append(out)
+
+        except Exception as e:
+            print(f"[WARNING] Could not download {ticker}: {e}")
+
+    if not macro_frames:
+        print("[WARNING] No macro data available. Returning empty dataframe.")
+        return pd.DataFrame(columns=["date"])
+
+    macro = macro_frames[0]
+
+    for frame in macro_frames[1:]:
+        macro = macro.merge(frame, on="date", how="outer")
+
+    macro = macro.sort_values("date").ffill()
+
+    macro.to_csv(output_path, index=False)
+    print(f"[SAVED] Macro drivers -> {output_path}")
+
+    return macro
+
+def get_macro_for_delivery_day(date: str) -> pd.DataFrame:
+    target_date = pd.to_datetime(date).date()
+
+    macro = download_macro_history(
+        start_date="2023-01-01",
+        end_date=(pd.Timestamp(date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+        overwrite=False,
+    )
+
+    if macro.empty:
+        return pd.DataFrame({"date": [target_date]})
+
+    macro["date"] = pd.to_datetime(macro["date"]).dt.date
+
+    available = macro[macro["date"] <= target_date].copy()
+
+    if available.empty:
+        return pd.DataFrame({"date": [target_date]})
+
+    row = available.tail(1).copy()
+    row["date"] = target_date
+
+    return row
+
+
+# =========================
+# Daily aligned dataset
+# =========================
 
 def build_daily_dataset(date: str) -> pd.DataFrame:
     dam_path = download_henex_dam(date)
@@ -221,6 +380,8 @@ def build_daily_dataset(date: str) -> pd.DataFrame:
     res = parse_ipto_forecast(res_path, "res_forecast_mw", date)
     weather = parse_open_meteo(weather_path)
 
+    macro = get_macro_for_delivery_day(date) if USE_MACRO_DRIVERS else None
+
     df = dam.merge(load, on="timestamp", how="left")
     df = df.merge(res, on="timestamp", how="left")
 
@@ -229,8 +390,13 @@ def build_daily_dataset(date: str) -> pd.DataFrame:
         weather.sort_values("timestamp"),
         on="timestamp",
         direction="nearest",
-        tolerance=pd.Timedelta("30min")
+        tolerance=pd.Timedelta("30min"),
     )
+
+    if macro is not None and not macro.empty:
+        df["date"] = df["timestamp"].dt.date
+        df = df.merge(macro, on="date", how="left")
+        df = df.drop(columns=["date"])
 
     df = df.sort_values("timestamp")
 
@@ -242,13 +408,150 @@ def build_daily_dataset(date: str) -> pd.DataFrame:
     return df
 
 
+# =========================
+# HEnEx historical archive
+# =========================
+
+def get_henex_archive_zip_links() -> dict[str, str]:
+    print(f"[SCRAPE] {HENEX_ARCHIVE_URL}")
+
+    r = requests.get(HENEX_ARCHIVE_URL, timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError(f"Could not open archive page: {r.status_code}")
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    zip_links = {}
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        text = a.get_text(strip=True)
+
+        if ".zip" not in href and ".zip" not in text:
+            continue
+
+        if href.startswith("/"):
+            href = "https://www.enexgroup.gr" + href
+
+        filename = text if text.endswith(".zip") else href.split("/")[-1]
+        zip_links[filename] = href
+
+    if not zip_links:
+        raise RuntimeError("No ZIP links found on HEnEx archive page.")
+
+    return zip_links
+
+
+def filter_henex_archive_links(
+    links: dict[str, str],
+    years: list[int],
+    include_results: bool = True,
+    include_curves: bool = True,
+) -> dict[str, str]:
+    selected = {}
+
+    for filename, url in links.items():
+        year_match = any(filename.startswith(str(year)) for year in years)
+
+        if not year_match:
+            continue
+
+        is_results = "Results.zip" in filename and "PrelimResults" not in filename
+        is_curves = "AggrCurves.zip" in filename
+
+        if include_results and is_results:
+            selected[filename] = url
+
+        if include_curves and is_curves:
+            selected[filename] = url
+
+    return selected
+
+
+def download_henex_historical_archive(
+    years: list[int],
+    include_results: bool = True,
+    include_curves: bool = True,
+    extract: bool = True,
+    overwrite: bool = False,
+) -> list[Path]:
+    all_links = get_henex_archive_zip_links()
+
+    selected_links = filter_henex_archive_links(
+        all_links,
+        years=years,
+        include_results=include_results,
+        include_curves=include_curves,
+    )
+
+    if not selected_links:
+        raise RuntimeError(
+            f"No matching archive ZIPs found for years={years}. "
+            f"Available files include: {list(all_links.keys())[:10]}"
+        )
+
+    downloaded_paths = []
+
+    for filename, url in selected_links.items():
+        zip_path = ARCHIVE_DIR / filename
+
+        download_file(url, zip_path, overwrite=overwrite)
+        downloaded_paths.append(zip_path)
+
+        if extract:
+            extract_dir = ARCHIVE_EXTRACTED_DIR / filename.replace(".zip", "")
+            extract_dir.mkdir(parents=True, exist_ok=True)
+
+            print(f"[EXTRACT] {filename} -> {extract_dir}")
+
+            with zipfile.ZipFile(zip_path, "r") as z:
+                z.extractall(extract_dir)
+
+    return downloaded_paths
+
+
+def list_extracted_archive_files() -> list[Path]:
+    files = list(ARCHIVE_EXTRACTED_DIR.rglob("*"))
+
+    files = [
+        f for f in files
+        if f.is_file() and f.suffix.lower() in [".xlsx", ".xls", ".csv"]
+    ]
+
+    print(f"[ARCHIVE FILES] Found {len(files)} extracted data files")
+
+    return files
+
+
+# =========================
+# Run
+# =========================
+
 if __name__ == "__main__":
     date = "2026-04-29"
 
     df = build_daily_dataset(date)
 
-    print("\nFinal dataset preview:")
+    print("\nFinal daily dataset preview:")
     print(df.head())
 
-    print("\nDataset info:")
+    print("\nDaily dataset info:")
     print(df.info())
+
+    archive_paths = download_henex_historical_archive(
+        years=[2023, 2024, 2025],
+        include_results=True,
+        include_curves=True,
+        extract=True,
+        overwrite=False,
+    )
+
+    print("\nDownloaded archive ZIPs:")
+    for p in archive_paths:
+        print(p)
+
+    extracted_files = list_extracted_archive_files()
+
+    print("\nFirst extracted files:")
+    for f in extracted_files[:20]:
+        print(f)
