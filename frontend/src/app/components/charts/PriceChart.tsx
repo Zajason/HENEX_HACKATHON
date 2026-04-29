@@ -41,31 +41,31 @@ export function PriceChart() {
             <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+        <CartesianGrid strokeDasharray="2 6" stroke="rgba(148,163,184,0.10)" />
         <XAxis
           dataKey="time"
-          stroke="#6B7280"
-          tick={{ fill: '#9CA3AF' }}
+          stroke="#475569"
+          tick={{ fill: '#94A3B8' }}
           interval={3}
         />
         <YAxis
-          stroke="#6B7280"
-          tick={{ fill: '#9CA3AF' }}
-          label={{ value: '€/MWh', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
+          stroke="#475569"
+          tick={{ fill: '#94A3B8' }}
+          label={{ value: '€/MWh', angle: -90, position: 'insideLeft', fill: '#94A3B8' }}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: '#1F2937',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px',
+            backgroundColor: '#0F1720',
+            border: '1px solid rgba(148,163,184,0.22)',
+            borderRadius: '6px',
             color: '#fff'
           }}
-          labelStyle={{ color: '#9CA3AF' }}
+          labelStyle={{ color: '#CBD5E1' }}
         />
         <Line
           type="monotone"
           dataKey="actual"
-          stroke="#3B82F6"
+          stroke="#38BDF8"
           strokeWidth={2}
           dot={false}
           name="Actual Price"
@@ -73,7 +73,7 @@ export function PriceChart() {
         <Line
           type="monotone"
           dataKey="forecast"
-          stroke="#8B5CF6"
+          stroke="#F59E0B"
           strokeWidth={2}
           strokeDasharray="5 5"
           dot={false}

@@ -2,21 +2,21 @@ import { TrendingUp, TrendingDown, Activity, Zap } from 'lucide-react';
 
 const metrics = [
   {
-    label: 'Expected Profit',
+    label: 'Expected margin',
     value: '€2,375',
     change: '+12.5%',
     positive: true,
     icon: TrendingUp
   },
   {
-    label: 'Realized Profit',
+    label: 'Booked margin',
     value: '€2,240',
     change: '+8.2%',
     positive: true,
     icon: TrendingUp
   },
   {
-    label: 'Total Cycles',
+    label: 'Equivalent cycles',
     value: '147',
     change: '94.2%',
     positive: true,
@@ -39,17 +39,17 @@ export function PerformanceMetrics() {
         return (
           <div
             key={index}
-            className="p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all"
+            className="rounded-lg border border-slate-700/40 bg-white/[0.025] p-4 transition-all hover:border-slate-600/80 hover:bg-white/[0.04]"
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">{metric.label}</span>
-              <Icon className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-slate-400">{metric.label}</span>
+              <Icon className="h-4 w-4 text-slate-500" />
             </div>
-            <div className="text-2xl text-white mb-2">
+            <div className="mb-2 text-2xl font-semibold text-white">
               {metric.value}
             </div>
             <div className={`text-xs flex items-center gap-1 ${
-              metric.positive ? 'text-green-400' : 'text-red-400'
+              metric.positive ? 'text-emerald-200' : 'text-rose-300'
             }`}>
               {metric.positive ? (
                 <TrendingUp className="w-3 h-3" />
