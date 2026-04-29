@@ -38,7 +38,10 @@ class PHConfig:
 # Data
 # ============================================================
 
-def load_forecast(path="synthetic_forecast_day.csv"):
+def load_forecast(path=None):
+    if path is None:
+        from optimisation._paths import synthetic
+        path = synthetic("synthetic_forecast_day.csv")
     df = pd.read_csv(path, parse_dates=["timestamp"])
     df = df.sort_values("timestamp").reset_index(drop=True)
 
@@ -647,7 +650,7 @@ def plot_tier4(df, scenarios, schedule, logs):
 # ============================================================
 
 if __name__ == "__main__":
-    df = load_forecast("synthetic_forecast_day.csv")
+    df = load_forecast()
 
     scenarios = build_tier4_scenario_tree(df)
 
@@ -665,11 +668,12 @@ if __name__ == "__main__":
     for k, v in metrics.items():
         print(f"{k}: {v:,.2f}")
 
-    schedule.to_csv("tier4_progressive_hedging_schedule.csv", index=False)
-    logs.to_csv("tier4_progressive_hedging_logs.csv", index=False)
+    from optimisation._paths import result
+    schedule.to_csv(result("tier4_progressive_hedging_schedule.csv"), index=False)
+    logs.to_csv(result("tier4_progressive_hedging_logs.csv"), index=False)
 
     print("\nSaved:")
-    print("- tier4_progressive_hedging_schedule.csv")
-    print("- tier4_progressive_hedging_logs.csv")
+    print(f"- {result('tier4_progressive_hedging_schedule.csv')}")
+    print(f"- {result('tier4_progressive_hedging_logs.csv')}")
 
     plot_tier4(df, scenarios, schedule, logs)
