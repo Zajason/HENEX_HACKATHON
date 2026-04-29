@@ -130,6 +130,12 @@ def attach_macro(df: pd.DataFrame, macro: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out["date"] = out["timestamp"].dt.date
     out = out.merge(macro, on="date", how="left").drop(columns=["date"])
+    # macro tickers (TTF, EUA) trade Mon-Fri; carry the latest value across
+    # weekends/holidays so feature columns are dense for the model.
+    macro_value_cols = [c for c in macro.columns if c != "date"]
+    if macro_value_cols:
+        out = out.sort_values("timestamp").reset_index(drop=True)
+        out[macro_value_cols] = out[macro_value_cols].ffill().bfill()
     return out
 
 

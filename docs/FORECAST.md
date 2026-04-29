@@ -94,7 +94,23 @@ This is **not** autoregressive Prophet. Prophet sees no lagged price; it sees th
 
 **Quantile crossing fix**: row-wise sort enforces P10 ≤ P50 ≤ P90 in the final step. Trees can otherwise produce mild crossings.
 
-**Implementation**: [forecast/](../forecast/) package. Entry points: `python -m scripts.fit_forecast` and `python -m scripts.predict_day --date YYYY-MM-DD`.
+**Implementation**: [forecast/](../forecast/) package. Phase B / C entry points:
+
+- `python -m scripts.b4_walkforward_no_weather` — Tier-0 floor walk-forward, no weather
+- `python -m scripts.a5_merge_era5_weather` — merge ERA5 weighted weather into `history.parquet`
+- `python -m scripts.b6_walkforward_with_weather` — re-fit with weather, weather-lift comparison
+- `python -m scripts.c1_calibration_report` — pinball loss + coverage by year / month / hour / era
+- `python -m scripts.c2_mad_table` — MAD table for the optimizer's spread filter
+- `python -m scripts.c3_sample_forecast_plots` — winter / summer / negative-price sanity plots
+
+### Shipping the trained model (clone-and-run)
+
+So a teammate who does not have the training data can still produce a forecast for tomorrow. Two scripts:
+
+- `python -m scripts.freeze_model` — runs once on the box that has `history.parquet`. Fits `Tier0Model` on the full frame, writes `models/tier0.pkl` + `models/mad_table.parquet` + `models/manifest.json` (training range, feature columns, lightgbm version, git SHA). Commit `models/` to ship the artefacts.
+- `python -m scripts.predict_tomorrow --date YYYY-MM-DD` — runs anywhere with internet, no training data needed. Fetches IPTO load + RES forecasts, Open-Meteo weather for the six Greek zones, TTF / EUA macro proxies via yfinance; builds the feature frame; loads the pickled model; writes `data/processed/<date>_forecast.csv` with `timestamp, p10_eur_mwh, p50_eur_mwh, p90_eur_mwh, mad_eur_mwh`.
+
+The `--dry-run` flag on `predict_tomorrow` builds the feature frame and reports its columns without trying to load the model — useful for verifying the inference data path on a machine that does not yet have `models/` populated.
 
 **Training data**: hourly DAM history (longer span, more samples). Apply intra-hour 15-min shape (see below) to translate hourly forecasts to 15-min.
 

@@ -36,8 +36,8 @@ for directory in [
 USE_MACRO_DRIVERS = True
 
 MACRO_SYMBOLS = {
-    "ttf_gas_proxy": "TTF=F",
-    "eua_carbon_proxy": "^ICEEUA",
+    "ttf_gas_proxy": ["TTF=F"],
+    "eua_carbon_proxy": ["KRBN", "^ICEEUA", "CO2.L"],
 }
 
 HENEX_ARCHIVE_URL = "https://www.enexgroup.gr/dam-idm-archive"
@@ -222,6 +222,11 @@ def parse_ipto_forecast(
 
         if len(nums) >= 90:
             values = nums[-96:]
+            freq = "15min"
+            break
+        if len(nums) >= 24:
+            values = nums[-24:]
+            freq = "1h"
             break
 
     if not values:
@@ -235,7 +240,7 @@ def parse_ipto_forecast(
     timestamps = pd.date_range(
         start=start,
         periods=len(values),
-        freq="15min",
+        freq=freq,
     )
 
     return pd.DataFrame(
@@ -289,40 +294,39 @@ def download_macro_history(
 
     macro_frames = []
 
-    for feature_name, ticker in MACRO_SYMBOLS.items():
-        print(f"[MACRO DOWNLOAD] {feature_name} from {ticker}")
+    for feature_name, tickers in MACRO_SYMBOLS.items():
+        if isinstance(tickers, str):
+            tickers = [tickers]
+        for ticker in tickers:
+            print(f"[MACRO DOWNLOAD] {feature_name} from {ticker}")
+            try:
+                hist = yf.download(
+                    ticker,
+                    start=start_date,
+                    end=end_date,
+                    progress=False,
+                    auto_adjust=False,
+                )
+                if hist.empty:
+                    print(f"[WARNING] No data returned for {ticker}; trying next")
+                    continue
 
-        try:
-            hist = yf.download(
-                ticker,
-                start=start_date,
-                end=end_date,
-                progress=False,
-                auto_adjust=False,
-            )
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = hist.columns.get_level_values(0)
 
-            if hist.empty:
-                print(f"[WARNING] No data returned for {ticker}")
-                continue
-
-            # Fix yfinance multi-index columns
-            if isinstance(hist.columns, pd.MultiIndex):
-                hist.columns = hist.columns.get_level_values(0)
-
-            hist = hist.reset_index()
-
-            date_col = "Date" if "Date" in hist.columns else "Datetime"
-            close_col = "Adj Close" if "Adj Close" in hist.columns else "Close"
-
-            out = hist[[date_col, close_col]].copy()
-
-            out.columns = ["date", feature_name]
-            out["date"] = pd.to_datetime(out["date"]).dt.date
-
-            macro_frames.append(out)
-
-        except Exception as e:
-            print(f"[WARNING] Could not download {ticker}: {e}")
+                hist = hist.reset_index()
+                date_col = "Date" if "Date" in hist.columns else "Datetime"
+                close_col = "Adj Close" if "Adj Close" in hist.columns else "Close"
+                out = hist[[date_col, close_col]].copy()
+                out.columns = ["date", feature_name]
+                out["date"] = pd.to_datetime(out["date"]).dt.date
+                macro_frames.append(out)
+                print(f"[MACRO OK] {feature_name} <- {ticker} ({len(out)} rows)")
+                break
+            except Exception as e:
+                print(f"[WARNING] Could not download {ticker}: {e}")
+        else:
+            print(f"[WARNING] all tickers failed for {feature_name}")
 
     if not macro_frames:
         print("[WARNING] No macro data available. Returning empty dataframe.")

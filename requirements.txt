@@ -11,3 +11,4 @@ lightgbm
 prophet
 pyarrow
 pyomo
+matplotlib
