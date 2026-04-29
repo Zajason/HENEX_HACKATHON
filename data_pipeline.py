@@ -2,10 +2,17 @@ from pathlib import Path
 from datetime import datetime
 import requests
 import pandas as pd
+import zipfile
+from bs4 import BeautifulSoup
 
 BASE_DIR = Path(__file__).resolve().parent
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
+ARCHIVE_DIR = RAW_DIR / "henex_archive"
+ARCHIVE_EXTRACTED_DIR = ARCHIVE_DIR / "extracted"
+
+ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+ARCHIVE_EXTRACTED_DIR.mkdir(parents=True, exist_ok=True)
 
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -241,14 +248,169 @@ def build_daily_dataset(date: str) -> pd.DataFrame:
 
     return df
 
+# =========================
+# HEnEx historical archive
+# =========================
 
+HENEX_ARCHIVE_URL = "https://www.enexgroup.gr/dam-idm-archive"
+
+
+def get_henex_archive_zip_links() -> dict[str, str]:
+    """
+    Scrapes the HEnEx DAM/IDM archive page and returns all ZIP links.
+
+    Returns:
+        {
+            "2025_EL-DAM-IDAs_Results.zip": "https://...",
+            "2025_EL-DAM-IDAs_AggrCurves.zip": "https://...",
+            ...
+        }
+    """
+
+    print(f"[SCRAPE] {HENEX_ARCHIVE_URL}")
+
+    r = requests.get(HENEX_ARCHIVE_URL, timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError(f"Could not open archive page: {r.status_code}")
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    zip_links = {}
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        text = a.get_text(strip=True)
+
+        if ".zip" not in href and ".zip" not in text:
+            continue
+
+        if href.startswith("/"):
+            href = "https://www.enexgroup.gr" + href
+
+        filename = text if text.endswith(".zip") else href.split("/")[-1]
+
+        zip_links[filename] = href
+
+    if not zip_links:
+        raise RuntimeError("No ZIP links found on HEnEx archive page.")
+
+    return zip_links
+
+
+def filter_henex_archive_links(
+    links: dict[str, str],
+    years: list[int],
+    include_results: bool = True,
+    include_curves: bool = True,
+) -> dict[str, str]:
+    selected = {}
+
+    for filename, url in links.items():
+        year_match = any(filename.startswith(str(year)) for year in years)
+
+        if not year_match:
+            continue
+
+        is_results = "Results.zip" in filename and "PrelimResults" not in filename
+        is_curves = "AggrCurves.zip" in filename
+
+        if include_results and is_results:
+            selected[filename] = url
+
+        if include_curves and is_curves:
+            selected[filename] = url
+
+    return selected
+
+
+def download_henex_historical_archive(
+    years: list[int],
+    include_results: bool = True,
+    include_curves: bool = True,
+    extract: bool = True,
+    overwrite: bool = False,
+) -> list[Path]:
+    """
+    Downloads historical HEnEx archive ZIPs into:
+        data/raw/henex_archive/
+
+    Extracts them into:
+        data/raw/henex_archive/extracted/
+    """
+
+    all_links = get_henex_archive_zip_links()
+
+    selected_links = filter_henex_archive_links(
+        all_links,
+        years=years,
+        include_results=include_results,
+        include_curves=include_curves,
+    )
+
+    if not selected_links:
+        raise RuntimeError(
+            f"No matching archive ZIPs found for years={years}. "
+            f"Available files include: {list(all_links.keys())[:10]}"
+        )
+
+    downloaded_paths = []
+
+    for filename, url in selected_links.items():
+        zip_path = ARCHIVE_DIR / filename
+
+        download_file(url, zip_path, overwrite=overwrite)
+        downloaded_paths.append(zip_path)
+
+        if extract:
+            extract_dir = ARCHIVE_EXTRACTED_DIR / filename.replace(".zip", "")
+            extract_dir.mkdir(parents=True, exist_ok=True)
+
+            print(f"[EXTRACT] {filename} -> {extract_dir}")
+
+            with zipfile.ZipFile(zip_path, "r") as z:
+                z.extractall(extract_dir)
+
+    return downloaded_paths
+
+
+def list_extracted_archive_files() -> list[Path]:
+    files = list(ARCHIVE_EXTRACTED_DIR.rglob("*"))
+
+    files = [
+        f for f in files
+        if f.is_file() and f.suffix.lower() in [".xlsx", ".xls", ".csv"]
+    ]
+
+    print(f"[ARCHIVE FILES] Found {len(files)} extracted data files")
+
+    return files
 if __name__ == "__main__":
     date = "2026-04-29"
 
+    # 1. Daily operational dataset
     df = build_daily_dataset(date)
 
-    print("\nFinal dataset preview:")
+    print("\nFinal daily dataset preview:")
     print(df.head())
 
-    print("\nDataset info:")
+    print("\nDaily dataset info:")
     print(df.info())
+
+    # 2. Historical HEnEx archive download
+    archive_paths = download_henex_historical_archive(
+        years=[2023, 2024, 2025],
+        include_results=True,
+        include_curves=True,
+        extract=True,
+        overwrite=False,
+    )
+
+    print("\nDownloaded archive ZIPs:")
+    for p in archive_paths:
+        print(p)
+
+    extracted_files = list_extracted_archive_files()
+
+    print("\nFirst extracted files:")
+    for f in extracted_files[:20]:
+        print(f)

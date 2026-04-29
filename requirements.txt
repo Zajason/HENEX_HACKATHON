@@ -3,3 +3,4 @@ requests
 openpyxl
 python-dateutil
 pytz
+beautifulsoup4
