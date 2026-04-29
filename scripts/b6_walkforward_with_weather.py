@@ -68,7 +68,7 @@ def main():
     print(result.by_year.to_string(index=False))
 
     cov = result.summary["coverage_p10_p90"].iloc[0]
-    print(f"\nP10-P90 coverage: {cov:.3f} (target ≈ 0.80)")
+    print(f"\nP10-P90 coverage: {cov:.3f} (target ~0.80)")
     print(f"Total predictions: {len(result.predictions)}")
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

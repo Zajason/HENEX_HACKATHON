@@ -152,12 +152,18 @@ LGBM_FEATURE_COLS = [
     "solar_weighted_temperature_2m_c",
     "solar_weighted_wind_speed_10m",
     "solar_weighted_ssrd_wm2",
+    "solar_weighted_total_cloud_cover",
+    "solar_weighted_total_precipitation_m",
     "wind_weighted_temperature_2m_c",
     "wind_weighted_wind_speed_10m",
     "wind_weighted_ssrd_wm2",
+    "wind_weighted_total_cloud_cover",
+    "wind_weighted_total_precipitation_m",
     "load_weighted_temperature_2m_c",
     "load_weighted_wind_speed_10m",
     "load_weighted_ssrd_wm2",
+    "load_weighted_total_cloud_cover",
+    "load_weighted_total_precipitation_m",
 ]
 
 LABEL_COL = "dam_price_eur_mwh"

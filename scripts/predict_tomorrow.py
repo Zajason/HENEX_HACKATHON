@@ -48,7 +48,7 @@ def _open_meteo_url(lat: float, lon: float, date: str) -> str:
     return (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        "&hourly=temperature_2m,wind_speed_10m,shortwave_radiation"
+        "&hourly=temperature_2m,wind_speed_10m,shortwave_radiation,cloud_cover,precipitation"
         f"&start_date={date}&end_date={date}"
         "&timezone=Europe%2FAthens"
     )
@@ -74,6 +74,16 @@ def fetch_zone_weather_open_meteo(date: str) -> pd.DataFrame:
                 "temperature_2m_c": h.get("temperature_2m"),
                 "wind_speed_10m": h.get("wind_speed_10m"),
                 "shortwave_radiation": h.get("shortwave_radiation"),
+                # Open-Meteo cloud_cover is 0-100%; ERA5 tcc is 0-1. Align to ERA5.
+                "total_cloud_cover": [
+                    (v / 100.0) if v is not None else None
+                    for v in (h.get("cloud_cover") or [])
+                ],
+                # Open-Meteo precipitation is mm/h; ERA5 tp is m. Align to ERA5.
+                "total_precipitation_m": [
+                    (v / 1000.0) if v is not None else None
+                    for v in (h.get("precipitation") or [])
+                ],
             }
         )
         zdf["zone"] = zone["zone"]

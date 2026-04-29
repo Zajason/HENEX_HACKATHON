@@ -23,7 +23,7 @@ from data_pipeline import (
     download_henex_historical_archive,
     parse_ipto_forecast,
 )
-from forecast.io import load_dam_history
+from forecast.io import attach_macro, load_dam_history, load_macro_history
 
 IPTO_DIR = RAW_DIR / "ipto_history"
 LOAD_DIR = IPTO_DIR / "load"
@@ -149,11 +149,21 @@ def build_history(
 
     history = dam.merge(load, on="timestamp", how="left")
     history = history.merge(res, on="timestamp", how="left")
+
+    macro = load_macro_history()
+    if not macro.empty:
+        history = attach_macro(history, macro)
+        print(f"[history] macro merged: {list(macro.columns)}")
+    else:
+        print("[history] WARNING: no macro_drivers_*.csv found; skipping TTF/EUA")
+
     history = history.sort_values("timestamp").drop_duplicates("timestamp").reset_index(drop=True)
 
     needed = ["load_forecast_mw", "res_forecast_mw"]
+    macro_value_cols = [c for c in macro.columns if c != "date"] if not macro.empty else []
+    needed = needed + macro_value_cols
     coverage = history[needed].notna().mean().mul(100).round(1)
-    print("[history] IPTO coverage:")
+    print("[history] coverage:")
     for col, pct in coverage.items():
         print(f"  {col}: {pct:.1f}%")
 
@@ -165,7 +175,7 @@ def build_history(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start", default="2024-10-01")
+    parser.add_argument("--start", default="2023-01-01")
     parser.add_argument("--end", default="2025-12-31")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument(
