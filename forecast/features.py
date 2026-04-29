@@ -149,6 +149,15 @@ LGBM_FEATURE_COLS = [
     "temperature_2m_c",
     "wind_speed_10m",
     "shortwave_radiation",
+    "solar_weighted_temperature_2m_c",
+    "solar_weighted_wind_speed_10m",
+    "solar_weighted_ssrd_wm2",
+    "wind_weighted_temperature_2m_c",
+    "wind_weighted_wind_speed_10m",
+    "wind_weighted_ssrd_wm2",
+    "load_weighted_temperature_2m_c",
+    "load_weighted_wind_speed_10m",
+    "load_weighted_ssrd_wm2",
 ]
 
 LABEL_COL = "dam_price_eur_mwh"
