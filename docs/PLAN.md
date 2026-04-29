@@ -89,6 +89,7 @@ Treat as polish on top of a working Tier 1 / Tier 2.
 
 - ARIMA / Prophet / LSTM "predict next price from previous price." The Discord thread is right: it is the wrong frame for a market-clearing system.
 - Mocked battery telemetry to fit deeper degradation models. Use datasheet priors; document in [OPTIMIZER.md](OPTIMIZER.md). The brief explicitly says solutions must work **without** rich telemetry history.
+- Self-hosted neural-network weather models (FourCastNet, GraphCast checkpoints, Pangu-Weather, etc.). Setup cost (CUDA box + PyTorch + multi-GB weights + ERA5 IC pipeline) exceeds the EE auth wait for WeatherNext 2 with no hackathon-deliverable upside. Stack is `ERA5 + Open-Meteo` today, `ERA5 + WeatherNext 2` once EE lands.
 - Real-time / intraday market integration. Out of scope; DAM only.
 - Bid-curve participation strategy (price-taker only).
 - Multi-asset portfolio optimization. One battery.

@@ -40,9 +40,17 @@ A single linear or quantile model spans these regimes and bleeds error across th
 At inference (gate-closure noon CET D-1) the model sees only:
 - IPTO load forecast at the latest version published before noon D-1.
 - IPTO RES forecast, same vintage rule.
-- WeatherNext 2 forecast issued at the cycle that closed before noon CET D-1 (typically the 06 UTC run); ERA5 reanalysis as a backfill source for training history pre-2024.
+- Weather aggregates from [weather_sources.py](../weather_sources.py) — see weather contract below.
 - Calendar features (hour, weekday, month, holiday / JJA / Easter).
 - (Tier 3 only) gas / carbon settlements from D-2.
+
+### Weather contract — Tier 0 path and the WeatherNext 2 upgrade
+
+Tier-0 weather is `ERA5 (training history) + Open-Meteo (live inference)`. Both are unblocked today: ERA5 needs only a free CDS token (`~/.cdsapirc`, ~5-min sign-up); Open-Meteo needs no auth.
+
+WeatherNext 2 is a **drop-in upgrade** for the live-inference path once Earth Engine auth lands. The downstream feature contract is identical (`solar_weighted_*`, `wind_weighted_*`, `load_weighted_temperature_2m` from `build_capacity_weighted_weather_dataset`), so swapping the live source does not require model retraining — only the `weather_sources` fetcher changes. ERA5 stays as the training-history source regardless of which live path is active.
+
+Do not block the forecast layer on EE approval. Ship Tier 0 with ERA5 + Open-Meteo; swap WeatherNext 2 in when ready. FourCastNet and other self-hosted NN weather models are explicitly out of scope (see [PLAN.md](PLAN.md) anti-goals).
 
 **Cleared generation mix from ENTSO-E enters only as the label for the regime classifier, never as a feature.** `res_share = res_fcst / load_fcst` is identity arithmetic from inputs the model already sees; a two-stage "predict mix → predict price" pipeline stacks errors for zero information gain.
 

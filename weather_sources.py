@@ -432,6 +432,41 @@ def download_era5_greece_single_levels(
     return output_path
 
 
+def _open_era5_dataset(nc_path: str | Path):
+    """
+    Opens ERA5 download as xarray.Dataset.
+
+    Handles two CDS response shapes:
+      - single .nc file (single variable or all-instantaneous request)
+      - zip bundle (mixed instantaneous + accumulated variables); CDS now
+        bundles these into archives like
+            data_stream-oper_stepType-instant.nc
+            data_stream-oper_stepType-accum.nc
+        We open each member and xr.merge them on the shared time axis.
+    """
+
+    import zipfile
+    import xarray as xr
+
+    nc_path = Path(nc_path)
+
+    if not zipfile.is_zipfile(nc_path):
+        return xr.open_dataset(nc_path)
+
+    extract_dir = nc_path.with_suffix(".unpacked")
+    extract_dir.mkdir(exist_ok=True)
+
+    with zipfile.ZipFile(nc_path, "r") as zf:
+        zf.extractall(extract_dir)
+
+    members = sorted(extract_dir.glob("*.nc"))
+    if not members:
+        raise RuntimeError(f"No .nc members in zip {nc_path}")
+
+    datasets = [xr.open_dataset(m) for m in members]
+    return xr.merge(datasets, compat="override")
+
+
 def era5_points_to_dataframe(
     nc_path: str | Path,
     zones: list[dict] = GREEK_ZONES,
@@ -443,7 +478,7 @@ def era5_points_to_dataframe(
 
     import xarray as xr
 
-    ds = xr.open_dataset(nc_path)
+    ds = _open_era5_dataset(nc_path)
 
     rows = []
 
