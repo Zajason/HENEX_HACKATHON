@@ -26,13 +26,22 @@ from pathlib import Path
 
 import pandas as pd
 
+from forecast.calibration import build_residual_quantile_table
 from forecast.features import LABEL_COL
 from forecast.tier0 import fit_tier0_model
 
 DEFAULT_HISTORY = Path("data/processed/history.parquet")
 DEFAULT_MAD_SOURCES = {
+    "v1_with_weather_calibrated": Path(
+        "data/processed/forecast_walkforward_v1_with_weather_calibrated.parquet"
+    ),
     "v1_with_weather": Path("data/processed/forecast_walkforward_v1_with_weather.parquet"),
     "v0_no_weather": Path("data/processed/forecast_walkforward_v0_no_weather.parquet"),
+}
+DEFAULT_CALIBRATION_SOURCES = {
+    "v1_with_weather_calibrated": Path(
+        "data/processed/calibration_table_v1_with_weather.parquet"
+    ),
 }
 ERA_15MIN_CUTOFF = pd.Timestamp("2025-10-01")
 
@@ -78,7 +87,7 @@ def build_mad_table(walkforward_path: Path, era_15min_only: bool = True) -> pd.D
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--history", type=Path, default=DEFAULT_HISTORY)
-    p.add_argument("--variant", choices=list(DEFAULT_MAD_SOURCES), default="v1_with_weather",
+    p.add_argument("--variant", choices=list(DEFAULT_MAD_SOURCES), default="v1_with_weather_calibrated",
                    help="which walk-forward parquet to compute MAD from")
     p.add_argument("--mad-source", type=Path, default=None,
                    help="override path of the walkforward parquet to compute MAD from")
@@ -109,6 +118,20 @@ def main() -> None:
 
     mad_source = args.mad_source or DEFAULT_MAD_SOURCES[args.variant]
     if mad_source.exists():
+        calibration_source = DEFAULT_CALIBRATION_SOURCES.get(args.variant)
+        if calibration_source is not None and calibration_source.exists():
+            calibration = pd.read_parquet(calibration_source)
+        else:
+            wf = pd.read_parquet(mad_source)
+            calibration = build_residual_quantile_table(wf)
+        model.calibration_table = calibration
+        model.save(model_path)
+        calibration_path = args.output_dir / "calibration_table.parquet"
+        calibration.to_parquet(calibration_path, index=False)
+        calibration.to_csv(calibration_path.with_suffix(".csv"), index=False)
+        print(f"[freeze] wrote {calibration_path}  "
+              f"({len(calibration)} cells, median n_obs={calibration['n_obs'].median():.0f})")
+
         mad = build_mad_table(mad_source, era_15min_only=not args.era_all)
         mad_path = args.output_dir / "mad_table.parquet"
         mad.to_parquet(mad_path, index=False)
@@ -134,6 +157,7 @@ def main() -> None:
         "mad_variant": args.variant,
         "mad_source": str(mad_source) if mad_source.exists() else None,
         "mad_era": "15min" if not args.era_all else "all",
+        "calibration": "residual_quantile_by_hour_weekday" if mad_source.exists() else None,
     }
     manifest_path = args.output_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))

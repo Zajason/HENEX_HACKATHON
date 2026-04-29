@@ -23,6 +23,9 @@ HISTORY_PATH = Path("data/processed/history.parquet")
 VARIANTS = {
     "v0_no_weather": Path("data/processed/forecast_walkforward_v0_no_weather.parquet"),
     "v1_with_weather": Path("data/processed/forecast_walkforward_v1_with_weather.parquet"),
+    "v1_with_weather_calibrated": Path(
+        "data/processed/forecast_walkforward_v1_with_weather_calibrated.parquet"
+    ),
 }
 
 

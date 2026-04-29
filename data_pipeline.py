@@ -222,6 +222,11 @@ def parse_ipto_forecast(
 
         if len(nums) >= 90:
             values = nums[-96:]
+            freq = "15min"
+            break
+        if len(nums) >= 24:
+            values = nums[-24:]
+            freq = "1h"
             break
 
     if not values:
@@ -235,7 +240,7 @@ def parse_ipto_forecast(
     timestamps = pd.date_range(
         start=start,
         periods=len(values),
-        freq="15min",
+        freq=freq,
     )
 
     return pd.DataFrame(

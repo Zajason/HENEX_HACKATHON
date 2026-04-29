@@ -19,6 +19,7 @@ from forecast.features import (
     build_feature_frame,
     select_lgbm_features,
 )
+from forecast.calibration import apply_residual_quantile_calibration
 from forecast.lgbm_quantile import DEFAULT_QUANTILES
 
 
@@ -28,6 +29,7 @@ class Tier0Model:
     feature_cols: list[str]
     backend: str
     quantiles: tuple[float, ...] = DEFAULT_QUANTILES
+    calibration_table: pd.DataFrame | None = None
 
     def predict(self, features_df: pd.DataFrame) -> pd.DataFrame:
         feats = build_feature_frame(features_df)
@@ -42,6 +44,8 @@ class Tier0Model:
 
         cols = [f"p{int(q * 100):02d}_eur_mwh" for q in sorted(self.quantiles)]
         out[cols] = np.sort(out[cols].to_numpy(), axis=1)
+        if self.calibration_table is not None:
+            out = apply_residual_quantile_calibration(out, self.calibration_table)
         return out.reset_index(drop=True)
 
     def save(self, path: Path) -> None:
