@@ -11,22 +11,45 @@ from pyomo.environ import *
 # ============================================================
 
 class Battery:
+    # Power & energy
     P_nom = 75.0
     E_nom = 300.0
     dt = 0.25
 
+    # Efficiencies
     eta_ch = 0.95
     eta_dis = 0.95
 
+    # SOC envelope
     SOC_min = 0.10 * E_nom
     SOC_max = 0.90 * E_nom
     E_init = 0.50 * E_nom
 
+    # Wear / degradation
     c_deg = 10.0
-
     max_cycles = 2.0
+
+    # Grid connection
     grid_import_max = 75.0
     grid_export_max = 75.0
+
+    # ---- §11 self-discharge & parasitic load (LFP utility-scale) ----
+    lambda_self = 5e-5         # /h, ~0.12% per day
+    P_aux = 0.5                # MW continuous (HVAC, BMS, monitoring)
+
+    # ---- §17 post-clearing settlement chain (DAM-only, no IDM) ----
+    m_DAM = 0.05 * P_nom       # 3.75 MW safety margin
+    sigma_exec = 0.02          # 2% execution uncertainty
+    beta_imb_short = 35.0      # €/MWh uplift if short
+    beta_imb_long = 20.0       # €/MWh discount if long (positive number)
+    tau_tol = 0.05 * P_nom     # 3.75 MW non-compliance tolerance band
+    c_NC = 100.0               # €/MWh of excess deviation
+
+    # Effective DAM bid limit after safety margin
+    P_DAM_max = P_nom - m_DAM   # 71.25 MW
+
+    # Average asymmetric imbalance premium for ex-ante expected-cost term
+    beta_imb_avg = 0.5 * (beta_imb_short + beta_imb_long)  # 27.5 €/MWh
 
 
 class Risk:
@@ -229,6 +252,18 @@ def optimize_tier3(df, scenarios):
     model.var_loss = Var(domain=Reals)
     model.excess_loss = Var(K, domain=NonNegativeReals)
 
+    # Non-compliance slack variables (§17.4): activate only when expected
+    # deviation σ_exec * |P_DAM_t| exceeds tolerance τ_tol.
+    # |P_DAM_t| = P_ch_t + P_dis_t  (because no-simultaneous holds).
+    model.nc_slack = Var(T, domain=NonNegativeReals)
+
+    def nc_slack_rule(m, t):
+        return m.nc_slack[t] >= (
+            Battery.sigma_exec * (m.P_ch[t] + m.P_dis[t]) - Battery.tau_tol
+        )
+
+    model.nc_slack_def = Constraint(T, rule=nc_slack_rule)
+
     scarcity = df["scarcity_pressure"].to_numpy()
     surplus = df["surplus_pressure"].to_numpy()
     tightness = df["market_tightness_norm"].to_numpy()
@@ -237,11 +272,18 @@ def optimize_tier3(df, scenarios):
     # Encourage charging in surplus periods indirectly through lower scenarios.
     structural_charge_penalty = Tier3.structural_penalty * (scarcity + tightness)
 
+    # §17.5 expected imbalance cost (DAM-only, no IDM recourse):
+    #   E[C_IMB] ≈ β_imb_avg · σ_exec · |P_DAM_t| · dt
+    # acts as a small linear penalty per MWh of throughput.
+    imb_rate_per_mwh = Battery.beta_imb_avg * Battery.sigma_exec  # €/MWh
+
     def scenario_profit_rule(m, k):
         return m.profit[k] == sum(
             scenarios[k, t] * (m.P_dis[t] - m.P_ch[t]) * Battery.dt
             - Battery.c_deg * (m.P_ch[t] + m.P_dis[t]) * Battery.dt
             - structural_charge_penalty[t] * m.P_ch[t] * Battery.dt
+            - imb_rate_per_mwh * (m.P_ch[t] + m.P_dis[t]) * Battery.dt
+            - Battery.c_NC * m.nc_slack[t] * Battery.dt
             for t in T
         )
 
@@ -264,14 +306,17 @@ def optimize_tier3(df, scenarios):
         sense=maximize,
     )
 
+    # Power limits use the safety-margined effective max (§17.6) so that
+    # the binding DAM bid stays within the non-compliance tolerance band
+    # in the absence of intraday recourse.
     model.charge_limit = Constraint(
         T,
-        rule=lambda m, t: m.P_ch[t] <= Battery.P_nom * m.u_ch[t],
+        rule=lambda m, t: m.P_ch[t] <= Battery.P_DAM_max * m.u_ch[t],
     )
 
     model.discharge_limit = Constraint(
         T,
-        rule=lambda m, t: m.P_dis[t] <= Battery.P_nom * m.u_dis[t],
+        rule=lambda m, t: m.P_dis[t] <= Battery.P_DAM_max * m.u_dis[t],
     )
 
     model.no_simultaneous = Constraint(
@@ -279,18 +324,25 @@ def optimize_tier3(df, scenarios):
         rule=lambda m, t: m.u_ch[t] + m.u_dis[t] <= 1,
     )
 
+    # SOC dynamics with self-discharge and parasitic auxiliary load (§5, §11):
+    #   E_t = (1 - λ·dt)·E_{t-1} + η_ch·P_ch·dt - P_dis·dt/η_dis - P_aux·dt
+    sd_factor = 1.0 - Battery.lambda_self * Battery.dt
+    aux_loss_per_step = Battery.P_aux * Battery.dt
+
     def soc_rule(m, t):
         if t == 0:
             return m.E[t] == (
-                Battery.E_init
+                sd_factor * Battery.E_init
                 + Battery.eta_ch * m.P_ch[t] * Battery.dt
                 - (m.P_dis[t] / Battery.eta_dis) * Battery.dt
+                - aux_loss_per_step
             )
 
         return m.E[t] == (
-            m.E[t - 1]
+            sd_factor * m.E[t - 1]
             + Battery.eta_ch * m.P_ch[t] * Battery.dt
             - (m.P_dis[t] / Battery.eta_dis) * Battery.dt
+            - aux_loss_per_step
         )
 
     model.soc = Constraint(T, rule=soc_rule)
@@ -312,14 +364,18 @@ def optimize_tier3(df, scenarios):
         <= Battery.max_cycles * Battery.E_nom
     )
 
+    # Grid connection limits also respect safety margin (§14 + §17.6)
+    grid_import_eff = min(Battery.grid_import_max, Battery.P_DAM_max)
+    grid_export_eff = min(Battery.grid_export_max, Battery.P_DAM_max)
+
     model.grid_import = Constraint(
         T,
-        rule=lambda m, t: m.P_ch[t] <= Battery.grid_import_max,
+        rule=lambda m, t: m.P_ch[t] <= grid_import_eff,
     )
 
     model.grid_export = Constraint(
         T,
-        rule=lambda m, t: m.P_dis[t] <= Battery.grid_export_max,
+        rule=lambda m, t: m.P_dis[t] <= grid_export_eff,
     )
 
     solver = SolverFactory("glpk")
