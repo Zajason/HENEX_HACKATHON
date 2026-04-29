@@ -94,6 +94,8 @@ def load_dam_and_intraday(
 
     dam = dam.sort_values("timestamp").reset_index(drop=True)
     intraday = intraday.sort_values("timestamp").reset_index(drop=True)
+    if "hour" not in dam.columns:
+     dam["hour"] = dam["timestamp"].dt.hour + dam["timestamp"].dt.minute / 60
 
     if "p50_eur_mwh" not in dam.columns:
         raise ValueError(
@@ -548,6 +550,30 @@ def plot_results(df):
     plt.savefig(OUTPUT_PLOT, dpi=150)
     plt.show()
 
+
+def run_tier(
+    forecast_csv: str,
+    capital_base_eur: float | None = None,
+    intraday_csv: str = INTRADAY_FILE,
+) -> dict:
+    df = load_dam_and_intraday(
+        dam_path=forecast_csv,
+        intraday_path=intraday_csv,
+    )
+
+    dam_df = run_dam_schedule(df)
+    mpc_df = run_intraday_mpc(dam_df)
+    result_df = add_market_accounting(mpc_df)
+    summary_df = summarize(result_df)
+
+    metrics = summary_df.iloc[0].to_dict()
+
+    # Needed by run_all_tiers.py
+    metrics["expected_profit_eur"] = metrics["tier6_dam_plus_intraday_adjustment_profit_eur"]
+    metrics["realized_profit_eur"] = metrics["tier6_dam_plus_intraday_adjustment_profit_eur"]
+    metrics["profit_eur"] = metrics["tier6_dam_plus_intraday_adjustment_profit_eur"]
+
+    return metrics
 
 # ============================================================
 # RUN

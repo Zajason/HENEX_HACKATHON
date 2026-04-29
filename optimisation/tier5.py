@@ -405,6 +405,26 @@ def plot_schedule(schedule, unc, title="Tier 5 — Robust schedule"):
     return fig
 
 
+def run_tier(
+    forecast_csv: str,
+    capital_base_eur: float | None = None,
+    gamma: float = 10.0,
+) -> dict:
+    df = load_forecast(forecast_csv)
+
+    class BudgetCfg(Robust):
+        uncertainty_type = "budget"
+
+    BudgetCfg.gamma = gamma
+
+    schedule, _, unc = optimize_tier5_robust(df, BudgetCfg)
+    metrics = report_metrics(schedule, unc, BudgetCfg)
+
+    # run_all_tiers.py looks for expected_profit_eur / realized_profit_eur / profit_eur
+    metrics["realized_profit_eur"] = metrics["expected_profit_eur"]
+    metrics["profit_eur"] = metrics["expected_profit_eur"]
+
+    return metrics
 # ============================================================
 # Main
 # ============================================================
