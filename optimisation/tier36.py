@@ -12,12 +12,14 @@ from pyomo.environ import *
 # CONFIG
 # ============================================================
 
-DAM_FILE = "synthetic_forecast_day.csv"
-INTRADAY_FILE = "synthetic_intraday_curve_from_dam.csv"
+from optimisation._paths import synthetic, result, plot
 
-OUTPUT_SCHEDULE = "tier7_greek_structural_intraday_schedule.csv"
-OUTPUT_SUMMARY = "tier7_greek_structural_intraday_summary.csv"
-OUTPUT_PLOT = "tier7_greek_structural_intraday_plot.png"
+DAM_FILE = str(synthetic("synthetic_forecast_day.csv"))
+INTRADAY_FILE = str(synthetic("synthetic_intraday_curve_from_dam.csv"))
+
+OUTPUT_SCHEDULE = str(result("tier7_greek_structural_intraday_schedule.csv"))
+OUTPUT_SUMMARY = str(result("tier7_greek_structural_intraday_summary.csv"))
+OUTPUT_PLOT = str(plot("tier7_greek_structural_intraday_plot.png"))
 
 
 # ============================================================

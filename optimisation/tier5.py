@@ -53,7 +53,10 @@ class Robust:
 # Data
 # ============================================================
 
-def load_forecast(path="synthetic_forecast_day.csv"):
+def load_forecast(path=None):
+    if path is None:
+        from optimisation._paths import synthetic
+        path = synthetic("synthetic_forecast_day.csv")
     df = pd.read_csv(path, parse_dates=["timestamp"])
     df = df.sort_values("timestamp").reset_index(drop=True)
 
@@ -430,7 +433,7 @@ def run_tier(
 # ============================================================
 
 if __name__ == "__main__":
-    df = load_forecast("synthetic_forecast_day.csv")
+    df = load_forecast()
 
     print("=" * 60)
     print("Tier 5 — Robust Optimization")
@@ -452,7 +455,8 @@ if __name__ == "__main__":
         else:
             print(f"  {k:30s}: {v}")
 
-    sched_box.to_csv("tier5_robust_box_schedule.csv", index=False)
+    from optimisation._paths import result, plot
+    sched_box.to_csv(result("tier5_robust_box_schedule.csv"), index=False)
 
     # ---------------------------------------------------------
     # Run 2: Budget uncertainty (Bertsimas-Sim, Γ=10)
@@ -471,7 +475,7 @@ if __name__ == "__main__":
         else:
             print(f"  {k:30s}: {v}")
 
-    sched_bud.to_csv("tier5_robust_budget_schedule.csv", index=False)
+    sched_bud.to_csv(result("tier5_robust_budget_schedule.csv"), index=False)
 
     # ---------------------------------------------------------
     # Run 3: Pareto curve over Γ
@@ -504,7 +508,7 @@ if __name__ == "__main__":
         })
 
     pareto_df = pd.DataFrame(pareto_rows)
-    pareto_df.to_csv("tier5_pareto.csv", index=False)
+    pareto_df.to_csv(result("tier5_pareto.csv"), index=False)
 
     print(pareto_df.to_string(index=False, float_format=lambda x: f"{x:>10,.2f}"))
 
@@ -513,8 +517,8 @@ if __name__ == "__main__":
     # ---------------------------------------------------------
     fig1 = plot_schedule(sched_bud, unc_b,
                          title=f"Tier 5 Robust schedule (Γ={BudgetCfg.gamma})")
-    fig1.savefig("tier5_robust_schedule.png", dpi=110)
-    print("\nSaved: tier5_robust_schedule.png")
+    fig1.savefig(plot("tier5_robust_schedule.png"), dpi=110)
+    print(f"\nSaved: {plot('tier5_robust_schedule.png')}")
 
     fig2, ax = plt.subplots(figsize=(10, 6))
     ax.plot(pareto_df["gamma"], pareto_df["expected_profit_eur"],
@@ -529,10 +533,10 @@ if __name__ == "__main__":
     ax.legend()
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    fig2.savefig("tier5_pareto.png", dpi=110)
-    print("Saved: tier5_pareto.png")
+    fig2.savefig(plot("tier5_pareto.png"), dpi=110)
+    print(f"Saved: {plot('tier5_pareto.png')}")
 
     print("\nSaved CSVs:")
-    print("  - tier5_robust_box_schedule.csv")
-    print("  - tier5_robust_budget_schedule.csv")
-    print("  - tier5_pareto.csv")
+    print(f"  - {result('tier5_robust_box_schedule.csv')}")
+    print(f"  - {result('tier5_robust_budget_schedule.csv')}")
+    print(f"  - {result('tier5_pareto.csv')}")

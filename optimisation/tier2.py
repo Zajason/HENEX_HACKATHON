@@ -44,7 +44,10 @@ class Tier2:
 # Data
 # ============================================================
 
-def load_forecast(path="synthetic_forecast_day.csv"):
+def load_forecast(path=None):
+    if path is None:
+        from optimisation._paths import synthetic
+        path = synthetic("synthetic_forecast_day.csv")
     df = pd.read_csv(path, parse_dates=["timestamp"])
     df = df.sort_values("timestamp").reset_index(drop=True)
 
@@ -484,7 +487,7 @@ def plot_tier2_results(schedule, scenarios, scenario_profits):
 # ============================================================
 
 if __name__ == "__main__":
-    df = load_forecast("synthetic_forecast_day.csv")
+    df = load_forecast()
 
     scenarios = generate_curve_aware_scenarios(
         df,
@@ -513,11 +516,12 @@ if __name__ == "__main__":
     for k, v in metrics.items():
         print(f"{k}: {v:,.2f}")
 
-    tier2_schedule.to_csv("tier2_curve_aware_schedule.csv", index=False)
-    pd.DataFrame(scenarios).to_csv("tier2_curve_aware_price_scenarios.csv", index=False)
+    from optimisation._paths import result
+    tier2_schedule.to_csv(result("tier2_curve_aware_schedule.csv"), index=False)
+    pd.DataFrame(scenarios).to_csv(result("tier2_curve_aware_price_scenarios.csv"), index=False)
 
     print("\nSaved:")
-    print("- tier2_curve_aware_schedule.csv")
-    print("- tier2_curve_aware_price_scenarios.csv")
+    print(f"- {result('tier2_curve_aware_schedule.csv')}")
+    print(f"- {result('tier2_curve_aware_price_scenarios.csv')}")
 
     plot_tier2_results(tier2_schedule, scenarios, scenario_profits)

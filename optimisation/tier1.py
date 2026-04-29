@@ -38,7 +38,10 @@ class Risk:
 # Data
 # ============================================================
 
-def load_forecast(path="synthetic_forecast_day.csv"):
+def load_forecast(path=None):
+    if path is None:
+        from optimisation._paths import synthetic
+        path = synthetic("synthetic_forecast_day.csv")
     df = pd.read_csv(path, parse_dates=["timestamp"])
     df = df.sort_values("timestamp").reset_index(drop=True)
 
@@ -432,7 +435,7 @@ def plot_tier1_results(schedule, scenarios, scenario_profits):
 # ============================================================
 
 if __name__ == "__main__":
-    df = load_forecast("synthetic_forecast_day.csv")
+    df = load_forecast()
 
     scenarios = generate_price_scenarios(
         df,
@@ -458,11 +461,12 @@ if __name__ == "__main__":
     for k, v in metrics.items():
         print(f"{k}: {v:,.2f}")
 
-    tier1_schedule.to_csv("tier1_cvar_schedule.csv", index=False)
-    pd.DataFrame(scenarios).to_csv("tier1_price_scenarios.csv", index=False)
+    from optimisation._paths import result
+    tier1_schedule.to_csv(result("tier1_cvar_schedule.csv"), index=False)
+    pd.DataFrame(scenarios).to_csv(result("tier1_price_scenarios.csv"), index=False)
 
     print("\nSaved:")
-    print("- tier1_cvar_schedule.csv")
-    print("- tier1_price_scenarios.csv")
+    print(f"- {result('tier1_cvar_schedule.csv')}")
+    print(f"- {result('tier1_price_scenarios.csv')}")
 
     plot_tier1_results(tier1_schedule, scenarios, scenario_profits)

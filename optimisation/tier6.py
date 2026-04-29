@@ -42,12 +42,14 @@ from pyomo.environ import *
 # CONFIG
 # ============================================================
 
-DAM_FILE = "synthetic_forecast_day.csv"
-INTRADAY_FILE = "synthetic_intraday_curve_from_dam.csv"
+from optimisation._paths import synthetic, result, plot
 
-OUTPUT_SCHEDULE = "tier6_mpc_intraday_schedule.csv"
-OUTPUT_SUMMARY = "tier6_mpc_intraday_summary.csv"
-OUTPUT_PLOT = "tier6_mpc_intraday_plot.png"
+DAM_FILE = str(synthetic("synthetic_forecast_day.csv"))
+INTRADAY_FILE = str(synthetic("synthetic_intraday_curve_from_dam.csv"))
+
+OUTPUT_SCHEDULE = str(result("tier6_mpc_intraday_schedule.csv"))
+OUTPUT_SUMMARY = str(result("tier6_mpc_intraday_summary.csv"))
+OUTPUT_PLOT = str(plot("tier6_mpc_intraday_plot.png"))
 
 
 class Battery:

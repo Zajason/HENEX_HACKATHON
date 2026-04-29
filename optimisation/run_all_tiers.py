@@ -208,9 +208,9 @@ def run_tier_module(module, forecast_csv: str, capital_base_eur: float):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--forecast-csv", default="synthetic_forecast_day.csv")
-    parser.add_argument("--tiers-dir", default="optimisation")
-    parser.add_argument("--output", default="tier_comparison_results.csv")
+    parser.add_argument("--forecast-csv", default=str(Path(__file__).resolve().parent / "synthetic" / "synthetic_forecast_day.csv"))
+    parser.add_argument("--tiers-dir", default=str(Path(__file__).resolve().parent))
+    parser.add_argument("--output", default=str(Path(__file__).resolve().parent / "results" / "tier_comparison_results.csv"))
 
     parser.add_argument(
         "--capital-base",

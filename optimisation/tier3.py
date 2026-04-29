@@ -56,7 +56,10 @@ def normalize(s):
 # Load + create Greek structural features
 # ============================================================
 
-def load_forecast(path="synthetic_forecast_day.csv"):
+def load_forecast(path=None):
+    if path is None:
+        from optimisation._paths import synthetic
+        path = synthetic("synthetic_forecast_day.csv")
     df = pd.read_csv(path, parse_dates=["timestamp"])
     df = df.sort_values("timestamp").reset_index(drop=True)
 
@@ -528,7 +531,7 @@ def plot_tier3_results(schedule, scenarios, profits):
 # ============================================================
 
 if __name__ == "__main__":
-    df = load_forecast("synthetic_forecast_day.csv")
+    df = load_forecast()
 
     scenarios = generate_tier3_scenarios(
         df,
@@ -550,11 +553,12 @@ if __name__ == "__main__":
     for k, v in metrics.items():
         print(f"{k}: {v:,.2f}")
 
-    schedule.to_csv("tier3_greek_structural_schedule.csv", index=False)
-    pd.DataFrame(scenarios).to_csv("tier3_greek_structural_scenarios.csv", index=False)
+    from optimisation._paths import result
+    schedule.to_csv(result("tier3_greek_structural_schedule.csv"), index=False)
+    pd.DataFrame(scenarios).to_csv(result("tier3_greek_structural_scenarios.csv"), index=False)
 
     print("\nSaved:")
-    print("- tier3_greek_structural_schedule.csv")
-    print("- tier3_greek_structural_scenarios.csv")
+    print(f"- {result('tier3_greek_structural_schedule.csv')}")
+    print(f"- {result('tier3_greek_structural_scenarios.csv')}")
 
     plot_tier3_results(schedule, scenarios, evaluated_profits)

@@ -33,7 +33,10 @@ class Battery:
 # LOAD DATA
 # ============================================================
 
-def load_data(path="synthetic_forecast_day.csv"):
+def load_data(path=None):
+    if path is None:
+        from optimisation._paths import synthetic
+        path = synthetic("synthetic_forecast_day.csv")
     df = pd.read_csv(path, parse_dates=["timestamp"])
 
     df["uncertainty"] = (df["p90_eur_mwh"] - df["p10_eur_mwh"]) / 2
@@ -248,4 +251,5 @@ if __name__ == "__main__":
 
     plot_results(df)
 
-    df.to_csv("tier0_results.csv", index=False)
+    from optimisation._paths import result
+    df.to_csv(result("tier0_results.csv"), index=False)
