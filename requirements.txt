@@ -1,6 +1,12 @@
 pandas
+numpy
 requests
 openpyxl
 python-dateutil
 pytz
 beautifulsoup4
+yfinance
+scikit-learn
+lightgbm
+prophet
+pyarrow

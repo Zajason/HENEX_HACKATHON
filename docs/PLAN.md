@@ -87,7 +87,7 @@ Treat as polish on top of a working Tier 1 / Tier 2.
 
 ## Anti-goals — things explicitly **not** on this roadmap
 
-- ARIMA / Prophet / LSTM "predict next price from previous price." The Discord thread is right: it is the wrong frame for a market-clearing system.
+- Pure autoregressive forecasting — ARIMA, vanilla Prophet "predict next price from previous price," LSTM on lagged price alone. Wrong frame: this is a market-clearing system, not a random walk. *(Note: Prophet **with exogenous regressors** — load_fcst, res_fcst, weather, holidays — is a different beast and is in fact used as the seasonal/trend/holiday backbone in the Tier 0 forecast layer; see [FORECAST.md](FORECAST.md). The anti-goal applies to Prophet-as-univariate-AR, not Prophet-as-decomposition.)*
 - Mocked battery telemetry to fit deeper degradation models. Use datasheet priors; document in [OPTIMIZER.md](OPTIMIZER.md). The brief explicitly says solutions must work **without** rich telemetry history.
 - Self-hosted neural-network weather models (FourCastNet, GraphCast checkpoints, Pangu-Weather, etc.). Setup cost (CUDA box + PyTorch + multi-GB weights + ERA5 IC pipeline) exceeds the EE auth wait for WeatherNext 2 with no hackathon-deliverable upside. Stack is `ERA5 + Open-Meteo` today, `ERA5 + WeatherNext 2` once EE lands.
 - Real-time / intraday market integration. Out of scope; DAM only.

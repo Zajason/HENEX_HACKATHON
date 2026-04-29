@@ -56,24 +56,45 @@ Do not block the forecast layer on EE approval. Ship Tier 0 with ERA5 + Open-Met
 
 For backtest training: the same vintage rule applies. Use the latest IPTO forecast file with publish time < D-1 noon, ERA5 reanalysis for weather pre-2024, WeatherNext 2 historical-forecast archive for 2024+. ERA5 is reanalysis (post-hoc analysis), not forecast vintage — it is mildly better than the contemporaneous forecast would have been. Disclose this small upward bias on pre-2024 backtest skill in the report.
 
-## Tier 0 — single-stage quantile model with kink features
+## Tier 0 — Prophet baseline + LightGBM-quantile residual
 
-Ships day 1. One global model, three quantiles, no regime layer.
+Ships day 1. Two-component architecture, single-stage (no two-stage *prediction* stacking — the residual model is a corrector, not a second predictor).
 
-**Features**
+**Architecture**
+
+```
+Prophet(trend + seasonality + holidays + exogenous regressors)  ->  yhat_t
+LightGBM-quantile on residual_t = price_t - yhat_t at q ∈ {0.1, 0.5, 0.9}
+                       conditional on kink + weather + macro features
+Final  P_q(t) = yhat_t + lgbm_q(residual | features_t)
+```
+
+Why this split: Prophet is genuinely good at *calendar effects with limited history* — Greek bank holidays, Orthodox Easter window, weekly + yearly + daily seasonality, slow trend in the price level. We let it own that. LightGBM-quantile is good at *non-linear residuals* with regime kinks. The two layers do non-overlapping work.
+
+This is **not** autoregressive Prophet. Prophet sees no lagged price; it sees the timestamp plus exogenous regressors (load_fcst, res_fcst, RL, RES_share, gas, carbon). The "Prophet anti-goal" in [PLAN.md](PLAN.md) refers to vanilla AR Prophet, not this configuration.
+
+**Prophet regressors (forecast-vintage only)**
+- `load_forecast_mw`, `res_forecast_mw`, `residual_load_mw`, `res_share`
+- `ttf_gas_proxy`, `eua_carbon_proxy` (forward-filled from D-2 daily settlement)
+- Greek bank holidays + Orthodox Easter window passed via `holidays=` argument
+
+**LightGBM-quantile features (the residual model)**
 - `residual_load_mw_forecast = load_fcst - res_fcst`
-- `RL_low_kink = min(RL_fcst, RL_q20)` — piecewise term that fires only when residual load is low (curtailment-prone).
-- `RL_high_kink = max(RL_fcst - RL_q80, 0)` — piecewise term that fires only when residual load is high (scarcity-prone).
+- `RL_low_kink = max(RL_q20 - RL_fcst, 0)` — fires only when residual load is low (curtailment-prone). Rolling 30-day quantile.
+- `RL_high_kink = max(RL_fcst - RL_q80, 0)` — fires only when residual load is high (scarcity-prone).
 - `rl_ramp_4h_mw = RL_t - RL_{t-4h}`
-- `hour_of_day` (cyclical), `weekday`, `is_weekend`
-- `month`, `is_jja_cooling`, `is_aug_vacation`, `is_easter_window`
+- Calendar: `hour`, `hour_sin`, `hour_cos`, `tod_sin`, `tod_cos`, `weekday`, `is_weekend`, `month`, `is_jja_cooling`, `is_aug_vacation`, `is_fixed_holiday`, `is_easter_window`
 - Capacity-weighted weather (from [weather_sources.py](../weather_sources.py) `build_capacity_weighted_weather_dataset`):
   - `solar_weighted_shortwave_radiation`, `solar_weighted_temperature_2m`
   - `wind_weighted_wind_speed_10m` (and `_100m` if WeatherNext 2 publishes it natively)
   - `load_weighted_temperature_2m` — population-weighted, drives cooling/heating load
-- *(optional, Tier 3 if cheaply available:)* `gas_price_eur_mwh`, `eua_carbon_eur_t`
+- Macro: `ttf_gas_proxy`, `eua_carbon_proxy`
 
-**Models**: `lightgbm.LGBMRegressor(objective='quantile', alpha=q)` for `q ∈ {0.1, 0.5, 0.9}` — three independent fits. Tree splits handle the residual-load kinks natively; the explicit `RL_low_kink` / `RL_high_kink` features are still cheap to include and help the linear-quantile fallback. Fallback if LGBM is unavailable: three `sklearn.linear_model.QuantileRegressor(quantile=q, alpha=...)` with the explicit kink features doing the non-linear lifting.
+**Models**: `lightgbm.LGBMRegressor(objective='quantile', alpha=q)` for `q ∈ {0.1, 0.5, 0.9}` — three independent fits on residual. Tree splits handle the residual-load kinks natively; the explicit `RL_low_kink` / `RL_high_kink` features are belt-and-braces for the linear fallback. Fallback if LGBM is unavailable: three `sklearn.linear_model.QuantileRegressor(quantile=q, alpha=...)` with the explicit kink features doing the non-linear lifting.
+
+**Quantile crossing fix**: row-wise sort enforces P10 ≤ P50 ≤ P90 in the final step. Trees can otherwise produce mild crossings.
+
+**Implementation**: [forecast/](../forecast/) package. Entry points: `python -m scripts.fit_forecast` and `python -m scripts.predict_day --date YYYY-MM-DD`.
 
 **Training data**: hourly DAM history (longer span, more samples). Apply intra-hour 15-min shape (see below) to translate hourly forecasts to 15-min.
 

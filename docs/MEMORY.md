@@ -37,6 +37,7 @@ Append-only. Each entry: date, decision, why, where it lives. If a decision chan
 - **2026-04-29 — Cleared fuel mix lives on ENTSO-E, not HEnEx, for the hourly era.** HEnEx `EL-DAM_Results` does carry per-MTU classification breakdown (Lignite / Natural Gas / RES / Imports / Storage / etc.) but reliably only for the 15-min era post-2025-10-01. For the hourly era ENTSO-E "Actual Generation per Production Type" (back to ~2015) is canonical. Use ENTSO-E regardless of era for consistency. Where: [DATA.md](DATA.md).
 - **2026-04-29 — DAM commitment is firm at noon CET D-1.** All 96 MTUs locked; physical deviation pays imbalance settlement. Constraint lives entirely in the optimizer; forecast contract is unchanged. Under firm commitment the CVaR penalty in the stochastic optimizer becomes structurally correct (not just nice-to-have). Where: [OPTIMIZER.md](OPTIMIZER.md).
 - **2026-04-29 — Evaluation is a Sharpe ladder, not a single number.** Forecast layer reports pinball loss + P10/P90 coverage. Strategy layer reports Sharpe / Sortino / Information Ratio vs naive baseline / capture rate vs perfect foresight / max drawdown / profit per MWh throughput. Split by regime (summer vs winter, hourly vs 15-min era) to avoid hiding bad slices in a single annualized number. Where: [PLAN.md](PLAN.md), [FORECAST.md](FORECAST.md).
+- **2026-04-29 — Tier 0 forecast layer is Prophet (decomposition backbone) + LightGBM-quantile (residual corrector).** Prophet sees timestamp + exogenous regressors (load_fcst, res_fcst, RL, RES_share, gas, carbon) + Greek bank holidays + Orthodox Easter window — *not* lagged price. LightGBM-quantile predicts conditional quantiles of the residual at q ∈ {0.1, 0.5, 0.9} using kink + weather + macro features. Final P_q = prophet_yhat + lgbm_q(residual). Why: Prophet owns calendar effects (which it does well on noisy thin series), LGBM owns non-linear residuals; non-overlapping work. PLAN.md anti-goal still bans *autoregressive* Prophet; the regressor-driven configuration is explicitly allowed. Where: [forecast/](../forecast/), [FORECAST.md](FORECAST.md), [PLAN.md](PLAN.md), [scripts/fit_forecast.py](../scripts/fit_forecast.py), [scripts/predict_day.py](../scripts/predict_day.py).
 
 ## Open questions (need user decision before committing code)
 
@@ -60,6 +61,8 @@ Append-only. Each entry: date, decision, why, where it lives. If a decision chan
 - Strategy thesis written down ([STRATEGY.md](STRATEGY.md)) including theta decomposition.
 - WeatherNext 2 + ERA5 weather sources scaffold ([weather_sources.py](../weather_sources.py)) with six Greek zones and capacity-weighted aggregates per RES type plus a load-weighted temperature aggregate.
 - One day of HEnEx DAM data captured (`2026-04-29`) in 15-min MTU; storage already participating (29 buy + 39 sell rows) — Greek standalone batteries went live in test mode this month.
+
+- Phase B B2-B3 code is present: pure single-stage LGBM quantile floor in [forecast/tier0.py](../forecast/tier0.py), rolling-origin harness in [forecast/backtest.py](../forecast/backtest.py), and CLI in [scripts/run_backtest.py](../scripts/run_backtest.py). B4 no-weather sanity run is wired via `python -m scripts.run_backtest --model tier0 --no-weather` and is blocked until Phase A writes `data/processed/history.parquet`.
 
 ## What is next
 
