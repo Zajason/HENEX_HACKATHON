@@ -86,6 +86,8 @@ WEATHER_VARS = [
     "temperature_2m",
     "wind_speed_10m",
     "shortwave_radiation",
+    "cloud_cover",
+    "precipitation",
 ]
 
 
@@ -373,6 +375,7 @@ def download_era5_greece_single_levels(
     year: int,
     month: int,
     output_name: str | None = None,
+    overwrite: bool = False,
 ):
     """
     Downloads ERA5 hourly single-level data for Greece.
@@ -397,7 +400,7 @@ def download_era5_greece_single_levels(
 
     output_path = RAW_WEATHER_DIR / output_name
 
-    if output_path.exists():
+    if output_path.exists() and not overwrite:
         print(f"[CACHE] {output_path}")
         return output_path
 
@@ -418,6 +421,8 @@ def download_era5_greece_single_levels(
                 "10m_u_component_of_wind",
                 "10m_v_component_of_wind",
                 "surface_solar_radiation_downwards",
+                "total_cloud_cover",
+                "total_precipitation",
             ],
             "year": str(year),
             "month": f"{month:02d}",
@@ -500,6 +505,8 @@ def era5_points_to_dataframe(
             "u10": "u10",
             "v10": "v10",
             "ssrd": "surface_solar_radiation_downwards",
+            "tcc": "total_cloud_cover",
+            "tp": "total_precipitation_m",
         }
 
         df = df.rename(columns=rename_map)
@@ -528,6 +535,8 @@ def era5_points_to_dataframe(
             "temperature_2m_c",
             "wind_speed_10m",
             "surface_solar_radiation_downwards",
+            "total_cloud_cover",
+            "total_precipitation_m",
         ]
 
         keep = [c for c in keep if c in df.columns]
