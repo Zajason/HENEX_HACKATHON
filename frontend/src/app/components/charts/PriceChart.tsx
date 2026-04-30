@@ -1,33 +1,7 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { PricePoint } from '../../data/AppDataContext';
 
-const data = [
-  { time: '00:00', actual: 45, forecast: 42, zone: 'charge' },
-  { time: '01:00', actual: 38, forecast: 40, zone: 'charge' },
-  { time: '02:00', actual: 32, forecast: 35, zone: 'charge' },
-  { time: '03:00', actual: 28, forecast: 30, zone: 'charge' },
-  { time: '04:00', actual: 30, forecast: 32, zone: 'charge' },
-  { time: '05:00', actual: 35, forecast: 38, zone: 'neutral' },
-  { time: '06:00', actual: 42, forecast: 45, zone: 'neutral' },
-  { time: '07:00', actual: 55, forecast: 52, zone: 'neutral' },
-  { time: '08:00', actual: 68, forecast: 65, zone: 'neutral' },
-  { time: '09:00', actual: 75, forecast: 72, zone: 'discharge' },
-  { time: '10:00', actual: 82, forecast: 80, zone: 'discharge' },
-  { time: '11:00', actual: 88, forecast: 85, zone: 'discharge' },
-  { time: '12:00', actual: 92, forecast: 90, zone: 'discharge' },
-  { time: '13:00', actual: 90, forecast: 88, zone: 'discharge' },
-  { time: '14:00', actual: 85, forecast: 83, zone: 'discharge' },
-  { time: '15:00', actual: 82, forecast: 80, zone: 'discharge' },
-  { time: '16:00', actual: 88, forecast: 86, zone: 'discharge' },
-  { time: '17:00', actual: 95, forecast: 92, zone: 'discharge' },
-  { time: '18:00', actual: 105, forecast: 102, zone: 'discharge' },
-  { time: '19:00', actual: 98, forecast: 95, zone: 'discharge' },
-  { time: '20:00', actual: 85, forecast: 82, zone: 'neutral' },
-  { time: '21:00', actual: 72, forecast: 70, zone: 'neutral' },
-  { time: '22:00', actual: 60, forecast: 58, zone: 'neutral' },
-  { time: '23:00', actual: 52, forecast: 50, zone: 'neutral' },
-];
-
-export function PriceChart() {
+export function PriceChart({ data }: { data: PricePoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={250}>
       <LineChart data={data}>

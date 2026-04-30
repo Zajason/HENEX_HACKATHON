@@ -51,7 +51,7 @@ export function DecisionLog() {
       {decisions.map((decision, index) => (
         <div
           key={index}
-          className="rounded-lg border border-slate-700/40 bg-white/[0.02] p-3 transition-all hover:border-slate-600/80 hover:bg-white/[0.04]"
+          className="rounded-md border border-slate-700/40 bg-white/[0.02] p-3 transition-all hover:border-slate-600/80 hover:bg-white/[0.04]"
         >
           <div className="flex items-start justify-between mb-1">
             <div className="flex items-center gap-2">

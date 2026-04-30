@@ -1,0 +1,9 @@
+{
+  "batteries": 5,
+  "capacity": 10.0,
+  "power": 5.0,
+  "chargeEff": 92.0,
+  "dischargeEff": 90.0,
+  "degradationCost": 2.5,
+  "mode": "aggressive"
+}

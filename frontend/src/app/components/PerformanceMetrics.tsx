@@ -1,37 +1,40 @@
 import { TrendingUp, TrendingDown, Activity, Zap } from 'lucide-react';
+import type { TradingSummary } from '../data/AppDataContext';
 
-const metrics = [
-  {
+function metricsFromSummary(summary: TradingSummary) {
+  return [{
     label: 'Expected margin',
-    value: '€2,375',
-    change: '+12.5%',
-    positive: true,
+    value: `€${summary.expectedMargin.toLocaleString()}`,
+    change: `${summary.expectedChange >= 0 ? '+' : ''}${summary.expectedChange}%`,
+    positive: summary.expectedChange >= 0,
     icon: TrendingUp
   },
   {
     label: 'Booked margin',
-    value: '€2,240',
-    change: '+8.2%',
-    positive: true,
+    value: `€${summary.bookedMargin.toLocaleString()}`,
+    change: `${summary.bookedChange >= 0 ? '+' : ''}${summary.bookedChange}%`,
+    positive: summary.bookedChange >= 0,
     icon: TrendingUp
   },
   {
     label: 'Equivalent cycles',
-    value: '147',
-    change: '94.2%',
-    positive: true,
+    value: String(summary.equivalentCycles),
+    change: `${summary.cycleUtilization}%`,
+    positive: summary.cycleUtilization >= 0,
     icon: Activity
   },
   {
     label: 'Efficiency Loss',
-    value: '5.7%',
-    change: '-2.1%',
-    positive: true,
+    value: `${summary.efficiencyLoss}%`,
+    change: `${summary.efficiencyChange >= 0 ? '+' : ''}${summary.efficiencyChange}%`,
+    positive: summary.efficiencyChange <= 0,
     icon: Zap
-  },
-];
+  }];
+}
 
-export function PerformanceMetrics() {
+export function PerformanceMetrics({ summary }: { summary: TradingSummary }) {
+  const metrics = metricsFromSummary(summary);
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {metrics.map((metric, index) => {
@@ -39,7 +42,7 @@ export function PerformanceMetrics() {
         return (
           <div
             key={index}
-            className="rounded-lg border border-slate-700/40 bg-white/[0.025] p-4 transition-all hover:border-slate-600/80 hover:bg-white/[0.04]"
+            className="rounded-md border border-slate-700/40 bg-white/[0.025] p-4 transition-all hover:border-slate-600/80 hover:bg-white/[0.04]"
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-slate-400">{metric.label}</span>
