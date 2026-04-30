@@ -1,7 +1,7 @@
 """Daily 12:00 optimisation runner for tier_final2.
 
 A background thread that wakes up once per day at 12:00 local time and runs
-`python -m optimisation.tier_final2` as a subprocess. Output CSV is written
+`python -m optimisation.tier_final` as a subprocess. Output CSV is written
 to `optimisation/results/tier_final2_schedule.csv`, which is what the
 realized-PnL evaluator reads.
 """
@@ -18,7 +18,7 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOG_DIR = PROJECT_ROOT / "optimisation" / "data"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / "tier_final2_runs.log"
+LOG_FILE = LOG_DIR / "tier_final_runs.log"
 
 DAILY_RUN_AT = time(hour=12, minute=0)
 
@@ -28,6 +28,7 @@ _state: dict = {
     "last_run_finished": None,
     "last_exit_code": None,
     "last_error": None,
+    "last_target_date": None,
     "next_run_at": None,
     "running": False,
 }
@@ -49,17 +50,25 @@ def _seconds_until_next_noon(now: Optional[datetime] = None) -> tuple[float, dat
     return (target - now).total_seconds(), target
 
 
-def run_optimiser_blocking() -> int:
-    """Run tier_final2 as a subprocess. Returns exit code. Updates _state."""
-    cmd = [sys.executable, "-m", "optimisation.tier_final2"]
+def run_optimiser_blocking(target_date: Optional[str] = None) -> int:
+    """Run tier_final as a subprocess. Returns exit code. Updates _state.
+
+    If `target_date` (YYYY-MM-DD) is given, passes `--date` to the optimiser
+    so the synthetic forecast is regenerated for that delivery day.
+    """
+    cmd = [sys.executable, "-m", "optimisation.tier_final"]
+    if target_date:
+        cmd += ["--date", target_date]
     started = datetime.now()
     with _state_lock:
         _state["running"] = True
         _state["last_run_started"] = started
         _state["last_error"] = None
+        _state["last_target_date"] = target_date
 
     with open(LOG_FILE, "ab") as log:
-        log.write(f"\n===== {started.isoformat()} =====\n".encode())
+        header = f"\n===== {started.isoformat()} | date={target_date or 'default'} =====\n"
+        log.write(header.encode())
         log.flush()
         proc = subprocess.run(
             cmd,
@@ -79,9 +88,13 @@ def run_optimiser_blocking() -> int:
     return proc.returncode
 
 
-def trigger_async() -> None:
+def trigger_async(target_date: Optional[str] = None) -> None:
     """Manual one-shot trigger (returns immediately)."""
-    threading.Thread(target=run_optimiser_blocking, daemon=True).start()
+    threading.Thread(
+        target=run_optimiser_blocking,
+        args=(target_date,),
+        daemon=True,
+    ).start()
 
 
 def _scheduler_loop(stop_event: threading.Event) -> None:

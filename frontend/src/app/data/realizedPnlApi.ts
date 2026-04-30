@@ -89,3 +89,59 @@ export async function fetchFromHenex(deliveryDay?: string): Promise<FetchHenexRe
   }
   return json as FetchHenexResult;
 }
+
+const optimiseRunUrl = `${baseUrl}/api/optimise/run`;
+const optimiseStatusUrl = `${baseUrl}/api/optimise/status`;
+
+export interface OptimiseStatus {
+  running: boolean;
+  last_run_started: string | null;
+  last_run_finished: string | null;
+  last_exit_code: number | null;
+  last_error: string | null;
+  last_target_date?: string | null;
+  next_run_at: string | null;
+}
+
+export async function runOptimiserForDate(deliveryDay?: string): Promise<void> {
+  const response = await fetch(optimiseRunUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deliveryDay ? { date: deliveryDay } : {}),
+  });
+  const json = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(json?.error ?? `Optimiser run failed: ${response.status}`);
+  }
+}
+
+export async function pollOptimiserStatus(): Promise<OptimiseStatus> {
+  const response = await fetch(optimiseStatusUrl);
+  if (!response.ok) {
+    throw new Error(`Status poll failed: ${response.status}`);
+  }
+  return response.json() as Promise<OptimiseStatus>;
+}
+
+const availableDatesUrl = `${baseUrl}/api/dam/available-dates`;
+
+export async function loadAvailableDates(): Promise<string[]> {
+  const response = await fetch(availableDatesUrl);
+  if (!response.ok) {
+    throw new Error(`available-dates failed: ${response.status}`);
+  }
+  const json = (await response.json()) as { dates: string[] };
+  return json.dates ?? [];
+}
+
+export async function waitForOptimiser(timeoutMs = 120000): Promise<OptimiseStatus> {
+  const start = Date.now();
+  for (;;) {
+    const s = await pollOptimiserStatus();
+    if (!s.running && s.last_run_finished) return s;
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('Optimiser run timed out');
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}

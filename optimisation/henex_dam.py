@@ -67,15 +67,24 @@ def fetch_dam_xlsx(target_date: date) -> tuple[bytes, str]:
     ymd = target_date.strftime("%Y%m%d")
     listing = _list_published_files()
     if ymd not in listing:
-        available = sorted(listing.keys(), reverse=True)[:5]
+        available = sorted(listing.keys(), reverse=True)
         raise RuntimeError(
-            f"No DAM Results Summary published for {target_date.isoformat()} on "
-            f"{LISTING_PAGE}. Most recent available: {available}"
+            f"No DAM Results Summary published for {target_date.isoformat()}. "
+            f"HEnEx public listing only exposes recent days; available: {available}"
         )
     _, url = listing[ymd]
     req = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(req, timeout=60) as resp:
         return resp.read(), url
+
+
+def list_available_dates() -> list[str]:
+    """Return ISO YYYY-MM-DD dates currently published on the HEnEx page (latest first)."""
+    listing = _list_published_files()
+    return sorted(
+        (datetime.strptime(ymd, "%Y%m%d").date().isoformat() for ymd in listing.keys()),
+        reverse=True,
+    )
 
 
 def parse_dam_xlsx(xlsx_bytes: bytes, target_date: date) -> pd.DataFrame:

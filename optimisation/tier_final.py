@@ -206,16 +206,29 @@ def normalize(s):
 # Load + create Greek structural features
 # ============================================================
 
-def load_forecast(path=None, bp: BatteryParams | None = None):
-    if path is None:
-        from optimisation._paths import synthetic
-        path = synthetic("synthetic_forecast_day.csv")
-    df = pd.read_csv(path, parse_dates=["timestamp"])
+def load_forecast(path=None, bp: BatteryParams | None = None, target_date: str | None = None):
+    """Load a 96-MTU price forecast.
+
+    If `target_date` (YYYY-MM-DD) is provided, generates a fresh synthetic
+    forecast for that delivery day via `forecast_dataset_sim.generate_forecast_day`.
+    Otherwise falls back to the cached `synthetic_forecast_day.csv`.
+    """
+    if target_date is not None:
+        from optimisation.forecast_dataset_sim import generate_forecast_day
+        # Seed derived from the date so each day has a different but reproducible draw.
+        date_obj = pd.to_datetime(target_date).date()
+        seed = int(date_obj.strftime("%Y%m%d")) % (2**31 - 1)
+        df = generate_forecast_day(date=target_date, seed=seed)
+    else:
+        if path is None:
+            from optimisation._paths import synthetic
+            path = synthetic("synthetic_forecast_day.csv")
+        df = pd.read_csv(path, parse_dates=["timestamp"])
+
     df = df.sort_values("timestamp").reset_index(drop=True)
 
     required = {"timestamp", "p10_eur_mwh", "p50_eur_mwh", "p90_eur_mwh"}
     missing = required - set(df.columns)
-
     if missing:
         raise ValueError(f"Missing columns: {missing}")
 
@@ -836,12 +849,22 @@ def plot_tier_final_results(schedule, scenarios, profits, bp: BatteryParams):
 # ============================================================
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Tier Final optimiser")
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="Delivery day (YYYY-MM-DD). If given, generates a fresh synthetic forecast for that day.",
+    )
+    args = parser.parse_args()
+
     # Load battery parameters from API config
     bp = load_battery_params()
     print_battery_params(bp)
 
-    # Load forecast data
-    df = load_forecast(bp=bp)
+    if args.date:
+        print(f"Generating forecast for delivery day {args.date}")
+    df = load_forecast(bp=bp, target_date=args.date)
 
     # Generate scenarios
     scenarios = generate_tier3_scenarios(

@@ -1,0 +1,314 @@
+
+===== 2026-04-30T14:58:28.089958 =====
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Running Tier Final optimisation...
+
+=== Tier Final Metrics (API battery config) ===
+  expected_profit_eur: 4,660.2260
+  median_profit_eur: 4,686.0977
+  p10_profit_eur: 3,453.1098
+  worst_profit_eur: 2,115.7044
+  cvar_10_profit_eur: 3,001.7698
+  profit_std_eur: 977.1587
+  sharpe_like: 4.7692
+  throughput_mwh: 252.2441
+  equivalent_cycles: 1.5765
+  profit_per_mwh_throughput: 18.4751
+  active_intervals: 51
+  idle_intervals: 45
+  min_soc_mwh: 8.0000
+  max_soc_mwh: 72.0000
+  naive_expected_profit_eur: 1,111.4214
+  profit_improvement_vs_naive_eur: 3,548.8046
+  information_ratio_vs_naive: 3.6371
+  naive_cvar_10_profit_eur: 199.5243
+
+=== Battery Group Dispatch Metrics ===
+  Group 1 — Battery block 1 (qty=5, 25.00 MW / 50.00 MWh)
+    charge=86.96 MWh, discharge=72.00 MWh, throughput=158.96 MWh, cycles=1.590
+    active=27 intervals (charge=15, discharge=12), SoC=5.00-45.00 MWh (10.0-90.0%)
+    P50 market profit=€2,723.93, degradation=€397.39, net=€2,326.53
+  Group 2 — Battery block 2 (qty=1, 5.00 MW / 20.00 MWh)
+    charge=33.64 MWh, discharge=27.85 MWh, throughput=61.50 MWh, cycles=1.537
+    active=51 intervals (charge=28, discharge=23), SoC=2.00-18.00 MWh (10.0-90.0%)
+    P50 market profit=€880.18, degradation=€153.74, net=€726.44
+  Group 3 — Battery block 3 (qty=1, 5.00 MW / 10.00 MWh)
+    charge=17.39 MWh, discharge=14.40 MWh, throughput=31.79 MWh, cycles=1.590
+    active=28 intervals (charge=16, discharge=12), SoC=1.00-9.00 MWh (10.0-90.0%)
+    P50 market profit=€543.76, degradation=€79.48, net=€464.28
+
+Saved:
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
+Plot saved to: C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\plots\tier_final_results.png
+
+===== 2026-04-30T15:06:15.693116 | date=2026-04-28 =====
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2026-04-28
+Running Tier Final optimisation...
+
+=== Tier Final Metrics (API battery config) ===
+  expected_profit_eur: 4,681.9276
+  median_profit_eur: 4,733.3084
+  p10_profit_eur: 3,367.3006
+  worst_profit_eur: 1,829.6895
+  cvar_10_profit_eur: 2,955.3410
+  profit_std_eur: 1,001.7312
+  sharpe_like: 4.6738
+  throughput_mwh: 250.1357
+  equivalent_cycles: 1.5633
+  profit_per_mwh_throughput: 18.7175
+  active_intervals: 50
+  idle_intervals: 46
+  min_soc_mwh: 8.0000
+  max_soc_mwh: 72.0000
+  naive_expected_profit_eur: 454.2098
+  profit_improvement_vs_naive_eur: 4,227.7178
+  information_ratio_vs_naive: 4.3927
+  naive_cvar_10_profit_eur: -418.5027
+
+=== Battery Group Dispatch Metrics ===
+  Group 1 — Battery block 1 (qty=5, 25.00 MW / 50.00 MWh)
+    charge=86.96 MWh, discharge=72.00 MWh, throughput=158.96 MWh, cycles=1.590
+    active=28 intervals (charge=15, discharge=13), SoC=5.00-45.00 MWh (10.0-90.0%)
+    P50 market profit=€2,717.65, degradation=€397.39, net=€2,320.26
+  Group 2 — Battery block 2 (qty=1, 5.00 MW / 20.00 MWh)
+    charge=32.49 MWh, discharge=26.90 MWh, throughput=59.39 MWh, cycles=1.485
+    active=50 intervals (charge=28, discharge=22), SoC=2.00-18.00 MWh (10.0-90.0%)
+    P50 market profit=€906.56, degradation=€148.47, net=€758.09
+  Group 3 — Battery block 3 (qty=1, 5.00 MW / 10.00 MWh)
+    charge=17.39 MWh, discharge=14.40 MWh, throughput=31.79 MWh, cycles=1.590
+    active=30 intervals (charge=17, discharge=13), SoC=1.00-9.00 MWh (10.0-90.0%)
+    P50 market profit=€543.98, degradation=€79.48, net=€464.51
+
+Saved:
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
+Plot saved to: C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\plots\tier_final_results.png
+
+===== 2026-04-30T15:07:41.446169 | date=2025-07-17 =====
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2025-07-17
+Running Tier Final optimisation...
+
+=== Tier Final Metrics (API battery config) ===
+  expected_profit_eur: 4,813.1211
+  median_profit_eur: 4,736.2454
+  p10_profit_eur: 3,610.0616
+  worst_profit_eur: 2,220.2262
+  cvar_10_profit_eur: 3,217.5013
+  profit_std_eur: 974.2391
+  sharpe_like: 4.9404
+  throughput_mwh: 247.3761
+  equivalent_cycles: 1.5461
+  profit_per_mwh_throughput: 19.4567
+  active_intervals: 47
+  idle_intervals: 49
+  min_soc_mwh: 8.0000
+  max_soc_mwh: 72.0000
+  naive_expected_profit_eur: 633.6033
+  profit_improvement_vs_naive_eur: 4,179.5178
+  information_ratio_vs_naive: 4.2286
+  naive_cvar_10_profit_eur: -238.9645
+
+=== Battery Group Dispatch Metrics ===
+  Group 1 — Battery block 1 (qty=5, 25.00 MW / 50.00 MWh)
+    charge=86.96 MWh, discharge=72.00 MWh, throughput=158.96 MWh, cycles=1.590
+    active=28 intervals (charge=16, discharge=12), SoC=5.00-45.00 MWh (10.0-90.0%)
+    P50 market profit=€2,888.73, degradation=€397.39, net=€2,491.34
+  Group 2 — Battery block 2 (qty=1, 5.00 MW / 20.00 MWh)
+    charge=30.98 MWh, discharge=25.65 MWh, throughput=56.63 MWh, cycles=1.416
+    active=47 intervals (charge=26, discharge=21), SoC=2.00-18.00 MWh (10.0-90.0%)
+    P50 market profit=€927.59, degradation=€141.57, net=€786.02
+  Group 3 — Battery block 3 (qty=1, 5.00 MW / 10.00 MWh)
+    charge=17.39 MWh, discharge=14.40 MWh, throughput=31.79 MWh, cycles=1.590
+    active=27 intervals (charge=15, discharge=12), SoC=1.00-9.00 MWh (10.0-90.0%)
+    P50 market profit=€577.93, degradation=€79.48, net=€498.45
+
+Saved:
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
+Plot saved to: C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\plots\tier_final_results.png
+
+===== 2026-04-30T15:14:05.987438 | date=2025-07-23 =====
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2025-07-23
+Running Tier Final optimisation...
+
+=== Tier Final Metrics (API battery config) ===
+  expected_profit_eur: 4,629.5670
+  median_profit_eur: 4,610.6471
+  p10_profit_eur: 3,412.0752
+  worst_profit_eur: 1,754.6411
+  cvar_10_profit_eur: 3,044.5954
+  profit_std_eur: 947.7149
+  sharpe_like: 4.8850
+  throughput_mwh: 252.2441
+  equivalent_cycles: 1.5765
+  profit_per_mwh_throughput: 18.3535
+  active_intervals: 51
+  idle_intervals: 45
+  min_soc_mwh: 8.0000
+  max_soc_mwh: 72.0000
+  naive_expected_profit_eur: 680.7694
+  profit_improvement_vs_naive_eur: 3,948.7976
+  information_ratio_vs_naive: 4.0722
+  naive_cvar_10_profit_eur: -87.7303
+
+=== Battery Group Dispatch Metrics ===
+  Group 1 — Battery block 1 (qty=5, 25.00 MW / 50.00 MWh)
+    charge=86.96 MWh, discharge=72.00 MWh, throughput=158.96 MWh, cycles=1.590
+    active=28 intervals (charge=15, discharge=13), SoC=5.00-45.00 MWh (10.0-90.0%)
+    P50 market profit=€2,720.19, degradation=€397.39, net=€2,322.80
+  Group 2 — Battery block 2 (qty=1, 5.00 MW / 20.00 MWh)
+    charge=33.64 MWh, discharge=27.85 MWh, throughput=61.50 MWh, cycles=1.537
+    active=51 intervals (charge=28, discharge=23), SoC=2.00-18.00 MWh (10.0-90.0%)
+    P50 market profit=€895.81, degradation=€153.74, net=€742.07
+  Group 3 — Battery block 3 (qty=1, 5.00 MW / 10.00 MWh)
+    charge=17.39 MWh, discharge=14.40 MWh, throughput=31.79 MWh, cycles=1.590
+    active=28 intervals (charge=15, discharge=13), SoC=1.00-9.00 MWh (10.0-90.0%)
+    P50 market profit=€540.79, degradation=€79.48, net=€461.31
+
+Saved:
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
+Plot saved to: C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\plots\tier_final_results.png
+
+===== 2026-04-30T15:16:02.797723 | date=2026-04-27 =====
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2026-04-27
+Running Tier Final optimisation...
+
+=== Tier Final Metrics (API battery config) ===
+  expected_profit_eur: 4,502.9647
+  median_profit_eur: 4,467.5849
+  p10_profit_eur: 3,341.8752
+  worst_profit_eur: 1,373.5190
+  cvar_10_profit_eur: 2,874.8529
+  profit_std_eur: 979.8198
+  sharpe_like: 4.5957
+  throughput_mwh: 263.3711
+  equivalent_cycles: 1.6461
+  profit_per_mwh_throughput: 17.0974
+  active_intervals: 49
+  idle_intervals: 47
+  min_soc_mwh: 8.0000
+  max_soc_mwh: 72.0000
+  naive_expected_profit_eur: 761.5562
+  profit_improvement_vs_naive_eur: 3,741.4086
+  information_ratio_vs_naive: 3.8770
+  naive_cvar_10_profit_eur: -115.8436
+
+=== Battery Group Dispatch Metrics ===
+  Group 1 — Battery block 1 (qty=5, 25.00 MW / 50.00 MWh)
+    charge=93.21 MWh, discharge=77.18 MWh, throughput=170.38 MWh, cycles=1.704
+    active=32 intervals (charge=18, discharge=14), SoC=5.00-45.00 MWh (10.0-90.0%)
+    P50 market profit=€2,626.19, degradation=€425.95, net=€2,200.24
+  Group 2 — Battery block 2 (qty=1, 5.00 MW / 20.00 MWh)
+    charge=32.23 MWh, discharge=26.68 MWh, throughput=58.91 MWh, cycles=1.473
+    active=49 intervals (charge=27, discharge=22), SoC=2.00-18.00 MWh (10.0-90.0%)
+    P50 market profit=€856.53, degradation=€147.28, net=€709.24
+  Group 3 — Battery block 3 (qty=1, 5.00 MW / 10.00 MWh)
+    charge=18.64 MWh, discharge=15.43 MWh, throughput=34.08 MWh, cycles=1.704
+    active=30 intervals (charge=17, discharge=13), SoC=1.00-9.00 MWh (10.0-90.0%)
+    P50 market profit=€525.82, degradation=€85.19, net=€440.63
+
+Saved:
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
+  - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
+Plot saved to: C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\plots\tier_final_results.png

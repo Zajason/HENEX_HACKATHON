@@ -38,6 +38,18 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(get_state())
             return
 
+        if self._path == "/api/dam/available-dates":
+            try:
+                from optimisation.henex_dam import list_available_dates
+                dates = list_available_dates()
+                self._send_json({"dates": dates})
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(
+                    {"error": str(exc), "type": exc.__class__.__name__, "dates": []},
+                    status=HTTPStatus.BAD_GATEWAY,
+                )
+            return
+
         if self._path == "/api/backtest/summary":
             self._handle_backtest_summary()
             return
@@ -159,13 +171,45 @@ class ApiHandler(BaseHTTPRequestHandler):
         if self._path == "/api/realized-pnl/fetch":
             self._fetch_and_evaluate()
             return
+        if self._path == "/api/realized-pnl/upload":
+            self._upload_and_evaluate()
+            return
         if self._path == "/api/optimise/run":
+            from datetime import date as _date, datetime as _datetime
             from api.scheduler import get_state, trigger_async
+
             if get_state()["running"]:
                 self._send_json({"error": "Optimisation already running"}, status=HTTPStatus.CONFLICT)
                 return
-            trigger_async()
-            self._send_json({"ok": True, "started": True, "state": get_state()})
+
+            try:
+                payload = self._read_json_body() if int(self.headers.get("content-length", "0")) else {}
+            except json.JSONDecodeError as exc:
+                self._send_json({"error": f"Invalid JSON: {exc}"}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            target_date_str = (payload or {}).get("date")
+            if target_date_str:
+                try:
+                    target_date_obj = _datetime.strptime(target_date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    self._send_json({"error": "date must be YYYY-MM-DD"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                min_date = _date(2025, 1, 1)
+                max_date = _date.today()
+                if target_date_obj < min_date or target_date_obj > max_date:
+                    self._send_json(
+                        {
+                            "error": (
+                                f"date out of range; must be between {min_date} and {max_date}"
+                            ),
+                        },
+                        status=HTTPStatus.BAD_REQUEST,
+                    )
+                    return
+
+            trigger_async(target_date_str)
+            self._send_json({"ok": True, "started": True, "target_date": target_date_str, "state": get_state()})
             return
         self._save_config()
 
