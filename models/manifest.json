@@ -1,6 +1,6 @@
 {
-  "frozen_at_utc": "2026-04-29T22:31:14.338507Z",
-  "git_sha": "2423fa7e188590caa900098b6cf4c9b205cd69f0",
+  "frozen_at_utc": "2026-04-30T07:48:22.591221Z",
+  "git_sha": "57f4a2631c06c093ec8480eec39931ca4cec732d",
   "lightgbm_version": "4.6.0",
   "model_backend": "lightgbm",
   "model_class": "Tier0Model",
@@ -55,6 +55,6 @@
   "training_end": "2025-12-31 23:45:00",
   "mad_variant": "v1_with_weather_calibrated",
   "mad_source": "data\\processed\\forecast_walkforward_v1_with_weather_calibrated.parquet",
-  "mad_era": "all",
+  "mad_era": "15min",
   "calibration": "residual_quantile_by_hour_weekday"
 }

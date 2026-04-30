@@ -32,7 +32,7 @@ class BatteryConfig:
     max_cycles: float = 2.0
     grid_import_mw: float = 75.0
     grid_export_mw: float = 75.0
-    risk_lambda: float = 0.35
+    risk_lambda: float = 0.10
 
     @property
     def soc_min_mwh(self) -> float:
