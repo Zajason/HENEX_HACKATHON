@@ -312,3 +312,157 @@ Saved:
   - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
   - C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
 Plot saved to: C:\Users\user\Documents\GitHub\HENEX_hackathon\optimisation\plots\tier_final_results.png
+
+===== 2026-04-30T15:27:01.594173 | date=2026-04-15 =====
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\HENEX_hackathon\optimisation\tier_final.py", line 20, in <module>
+    from pyomo.environ import *
+ModuleNotFoundError: No module named 'pyomo'
+
+===== 2026-04-30T15:29:37.849234 | date=2026-04-29 =====
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\HENEX_hackathon\optimisation\tier_final.py", line 878, in <module>
+    schedule, profits = optimize_tier_final(df, scenarios, bp)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\HENEX_hackathon\optimisation\tier_final.py", line 506, in optimize_tier_final
+    result = solver.solve(model, tee=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\base.py", line 1567, in solve
+    results: Results = super(LegacySolverInterface, self).solve(model)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\solvers\highs.py", line 289, in solve
+    self.set_instance(model)
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\solvers\highs.py", line 387, in set_instance
+    if not self.available():
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\base.py", line 1646, in available
+    raise ApplicationError(f'Solver {self.__class__} is not available ({ans}).')
+pyomo.common.errors.ApplicationError: Solver <class 'pyomo.contrib.appsi.base.SolverFactoryClass.register.<locals>.decorator.<locals>.LegacySolver'> is not available (NotFound).
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2026-04-29
+Running Tier Final optimisation...
+
+===== 2026-04-30T15:31:50.058116 | date=2026-04-29 =====
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\HENEX_hackathon\optimisation\tier_final.py", line 878, in <module>
+    schedule, profits = optimize_tier_final(df, scenarios, bp)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\HENEX_hackathon\optimisation\tier_final.py", line 506, in optimize_tier_final
+    result = solver.solve(model, tee=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\base.py", line 1567, in solve
+    results: Results = super(LegacySolverInterface, self).solve(model)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\solvers\highs.py", line 289, in solve
+    self.set_instance(model)
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\solvers\highs.py", line 387, in set_instance
+    if not self.available():
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\dimit\AppData\Local\Programs\Python\Python312\Lib\site-packages\pyomo\contrib\appsi\base.py", line 1646, in available
+    raise ApplicationError(f'Solver {self.__class__} is not available ({ans}).')
+pyomo.common.errors.ApplicationError: Solver <class 'pyomo.contrib.appsi.base.SolverFactoryClass.register.<locals>.decorator.<locals>.LegacySolver'> is not available (NotFound).
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2026-04-29
+Running Tier Final optimisation...
+
+===== 2026-04-30T15:39:01.314845 | date=2026-04-30 =====
+
+=== Battery Parameters (from API config) ===
+  P_nom          = 35.00 MW
+  E_nom          = 80.00 MWh
+  ç_charge       = 0.9200
+  ç_discharge    = 0.9000
+  RTE            = 0.8280
+  SOC_min        = 8.00 MWh (10.0%)
+  SOC_max        = 72.00 MWh (90.0%)
+  E_init         = 12.00 MWh (15.0%)
+  c_deg          = 2.50 €/MWh throughput
+  max_cycles     = 2.0
+  grid_import    = 35.00 MW
+  grid_export    = 35.00 MW
+  Ät             = 0.25 h (15 min)
+  Groups:
+    [0] Battery block 1: qty=5, 25.00 MW / 50.00 MWh, SOC 5.00-45.00 MWh, E_init=7.50 MWh, ç=0.920/0.900, c_deg=2.50
+    [1] Battery block 2: qty=1, 5.00 MW / 20.00 MWh, SOC 2.00-18.00 MWh, E_init=3.00 MWh, ç=0.920/0.900, c_deg=2.50
+    [2] Battery block 3: qty=1, 5.00 MW / 10.00 MWh, SOC 1.00-9.00 MWh, E_init=1.50 MWh, ç=0.920/0.900, c_deg=2.50
+
+Generating forecast for delivery day 2026-04-30
+Using trained forecast file: D:\HENEX_hackathon\data\processed\2026-04-30_forecast.csv
+Running Tier Final optimisation...
+WARNING: stochastic MILP solver unavailable (Solver <class 'pyomo.contrib.appsi.base.SolverFactoryClass.register.<locals>.decorator.<locals>.LegacySolver'> is not available (NotFound).).
+Falling back to deterministic trained-forecast LP.
+
+=== Tier Final Metrics (API battery config) ===
+  solver_mode: deterministic_lp_fallback
+  profit_eur: 5,458.6687
+  revenue_eur: 5,308.7427
+  energy_cost_eur: -467.8391
+  degradation_eur: 317.9130
+  energy_bought_mwh: 69.5652
+  energy_sold_mwh: 57.6000
+  throughput_mwh: 127.1652
+  equivalent_cycles: 0.7200
+  profit_per_mwh_throughput: 42.9258
+  avg_buy_price_eur_mwh: -6.7252
+  avg_sell_price_eur_mwh: 92.1657
+  active_intervals: 16
+  idle_intervals: 80
+  min_soc_mwh: 8.0000
+  max_soc_mwh: 72.0000
+  daily_sharpe: nan
+  daily_sortino: nan
+  daily_pnl_observations: 1
+  evaluation_price_col: p50_eur_mwh
+  solver_status: Optimization terminated successfully. (HiGHS Status 7: Optimal)
+  objective_risk_adjusted_eur: 3,084.9999
+  interval_hours: 0.2500
+  intervals: 96
+
+Saved:
+  - D:\HENEX_hackathon\optimisation\results\tier_final_schedule.csv
+  - D:\HENEX_hackathon\optimisation\results\tier_final_scenarios.csv
+Plot saved to: D:\HENEX_hackathon\optimisation\plots\tier_final_results.png

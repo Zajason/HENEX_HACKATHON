@@ -26,6 +26,8 @@ from openpyxl import load_workbook
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LOCAL_HISTORY_PATH = PROJECT_ROOT / "data" / "processed" / "history.parquet"
 
 LISTING_PAGE = "https://www.enexgroup.gr/markets-publications-el-day-ahead-market"
 BASE = "https://www.enexgroup.gr"
@@ -78,13 +80,55 @@ def fetch_dam_xlsx(target_date: date) -> tuple[bytes, str]:
         return resp.read(), url
 
 
+def _local_history_dates() -> list[str]:
+    if not LOCAL_HISTORY_PATH.exists():
+        return []
+    try:
+        df = pd.read_parquet(LOCAL_HISTORY_PATH, columns=["timestamp", "dam_price_eur_mwh"])
+    except Exception:
+        return []
+    df = df.dropna(subset=["dam_price_eur_mwh"])
+    if df.empty:
+        return []
+    df["date"] = pd.to_datetime(df["timestamp"]).dt.date.astype(str)
+    # The interactive PnL optimiser is currently 15-min MTU. Keep local dates
+    # with full 96-row coverage; hourly historical rows remain usable for
+    # forecast backtests, but not for this single-day UI runner.
+    counts = df.groupby("date").size()
+    dates = counts[counts >= 90].index.tolist()
+    return sorted(dates, reverse=True)
+
+
 def list_available_dates() -> list[str]:
-    """Return ISO YYYY-MM-DD dates currently published on the HEnEx page (latest first)."""
-    listing = _list_published_files()
-    return sorted(
-        (datetime.strptime(ymd, "%Y%m%d").date().isoformat() for ymd in listing.keys()),
-        reverse=True,
+    """Return ISO dates available from public HEnEx or local history."""
+    dates: set[str] = set(_local_history_dates())
+    try:
+        listing = _list_published_files()
+        dates.update(
+            datetime.strptime(ymd, "%Y%m%d").date().isoformat()
+            for ymd in listing.keys()
+        )
+    except Exception:
+        # The frontend can still use local historical HEnEx data offline.
+        pass
+    return sorted(dates, reverse=True)
+
+
+def load_local_actual_prices(target_date: date) -> pd.DataFrame:
+    if not LOCAL_HISTORY_PATH.exists():
+        raise FileNotFoundError(f"Local history not found: {LOCAL_HISTORY_PATH}")
+    df = pd.read_parquet(
+        LOCAL_HISTORY_PATH,
+        columns=["timestamp", "dam_price_eur_mwh"],
     )
+    df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.tz_localize(None)
+    day = df[df["timestamp"].dt.date == target_date].copy()
+    day = day.dropna(subset=["dam_price_eur_mwh"]).sort_values("timestamp")
+    if day.empty:
+        raise RuntimeError(f"No local DAM prices found for {target_date.isoformat()}")
+    return day.rename(columns={"dam_price_eur_mwh": "price_eur_mwh"})[
+        ["timestamp", "price_eur_mwh"]
+    ].reset_index(drop=True)
 
 
 def parse_dam_xlsx(xlsx_bytes: bytes, target_date: date) -> pd.DataFrame:
@@ -147,8 +191,12 @@ def parse_dam_xlsx(xlsx_bytes: bytes, target_date: date) -> pd.DataFrame:
 
 def fetch_actual_prices(target_date: date) -> tuple[pd.DataFrame, str, Path]:
     """End-to-end: fetch + parse + save CSV. Returns (df, source_url, csv_path)."""
-    raw, url = fetch_dam_xlsx(target_date)
-    df = parse_dam_xlsx(raw, target_date)
+    try:
+        raw, url = fetch_dam_xlsx(target_date)
+        df = parse_dam_xlsx(raw, target_date)
+    except Exception:
+        df = load_local_actual_prices(target_date)
+        url = f"local:{LOCAL_HISTORY_PATH}"
     csv_path = DATA_DIR / f"dam_actual_{target_date.isoformat()}.csv"
     df.to_csv(csv_path, index=False)
     return df, url, csv_path

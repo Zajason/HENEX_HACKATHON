@@ -33,7 +33,9 @@ export interface RealizedPnlSummary {
 
 export interface RealizedPnlMtuRow {
   timestamp: string;
+  p10_eur_mwh?: number;
   p50_eur_mwh: number;
+  p90_eur_mwh?: number;
   charge_mw: number;
   discharge_mw: number;
   actual_price_eur_mwh: number;

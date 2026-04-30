@@ -384,7 +384,7 @@ export function RealizedPnL() {
         <section className="surface rounded-md p-5">
           <div className="mb-3">
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Prices</div>
-            <h2 className="text-base font-semibold text-white">Forecast P50 vs actual DAM clearing</h2>
+            <h2 className="text-base font-semibold text-white">Trained forecast band vs actual DAM clearing</h2>
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={chartData}>
@@ -392,7 +392,9 @@ export function RealizedPnL() {
               <XAxis dataKey="time" stroke="#475569" tick={{ fill: '#94A3B8', fontSize: 11 }} interval={11} />
               <YAxis stroke="#475569" tick={{ fill: '#94A3B8', fontSize: 11 }} width={40} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${num(v, 1)} €/MWh`} />
+              <Line type="monotone" dataKey="p10_eur_mwh" stroke="#64748B" strokeWidth={1} strokeDasharray="2 5" dot={false} name="Forecast P10" connectNulls />
               <Line type="monotone" dataKey="p50_eur_mwh" stroke="#9ed9c5" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Forecast P50" />
+              <Line type="monotone" dataKey="p90_eur_mwh" stroke="#64748B" strokeWidth={1} strokeDasharray="2 5" dot={false} name="Forecast P90" connectNulls />
               <Line type="monotone" dataKey="actual_price_eur_mwh" stroke="#6EE7B7" strokeWidth={2} dot={false} name="Actual DAM" />
             </LineChart>
           </ResponsiveContainer>
@@ -472,7 +474,7 @@ export function RealizedPnL() {
             <thead className="sticky top-0 bg-[#0F1720] text-slate-500 uppercase tracking-[0.1em]">
               <tr>
                 <th className="px-3 py-2">MTU</th>
-                <th className="px-3 py-2 text-right">Forecast</th>
+                <th className="px-3 py-2 text-right">Forecast P50</th>
                 <th className="px-3 py-2 text-right">Actual</th>
                 <th className="px-3 py-2 text-right">Charge MW</th>
                 <th className="px-3 py-2 text-right">Discharge MW</th>
@@ -496,7 +498,14 @@ export function RealizedPnL() {
                 return (
                   <tr key={row.timestamp} className="border-t border-slate-700/30 hover:bg-white/[0.02]">
                     <td className="px-3 py-1.5 font-mono text-slate-300">{timeLabel(row.timestamp)}</td>
-                    <td className="px-3 py-1.5 text-right text-slate-400">{num(row.p50_eur_mwh, 1)}</td>
+                    <td className="px-3 py-1.5 text-right text-slate-400">
+                      {num(row.p50_eur_mwh, 1)}
+                      {Number.isFinite(row.p10_eur_mwh) && Number.isFinite(row.p90_eur_mwh) && (
+                        <div className="text-[0.62rem] text-slate-600">
+                          {num(row.p10_eur_mwh as number, 0)}-{num(row.p90_eur_mwh as number, 0)}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-1.5 text-right text-slate-200">{num(row.actual_price_eur_mwh, 1)}</td>
                     <td className="px-3 py-1.5 text-right">{row.charge_mw > 1e-6 ? num(row.charge_mw, 2) : '·'}</td>
                     <td className="px-3 py-1.5 text-right">{row.discharge_mw > 1e-6 ? num(row.discharge_mw, 2) : '·'}</td>
