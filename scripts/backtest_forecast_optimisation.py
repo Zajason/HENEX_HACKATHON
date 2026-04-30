@@ -132,8 +132,8 @@ def main() -> None:
     parser.add_argument(
         "--capex-eur-per-mwh",
         type=float,
-        default=300_000.0,
-        help="Battery installed cost per MWh; used for return-based Sharpe.",
+        default=220_000.0,
+        help="Battery installed cost per MWh (2025-2026 LFP turnkey ~€220k/MWh).",
     )
     parser.add_argument(
         "--risk-free-rate-pct",
