@@ -4,7 +4,7 @@
       "id": "battery-1",
       "name": "Battery block 1",
       "quantity": 1,
-      "capacity": 10000.0,
+      "capacity": 10.0,
       "power": 5.0,
       "socMin": 10.0,
       "socMax": 90.0,
