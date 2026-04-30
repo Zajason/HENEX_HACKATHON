@@ -3,19 +3,22 @@
 Downloads the daily DAM Results Summary XLSX from enexgroup.gr and produces
 a CSV with columns (timestamp, price_eur_mwh) at 15-min MTU resolution.
 
-URL pattern documented by HEnEx for automated download:
-  https://www.enexgroup.gr/documents/20126/366820/<YYYYMMDD>_EL-DAM_ResultsSummary_EN_v<NN>.xlsx
+The Day-Ahead Market publications page lists each day's file as a Liferay
+document_library link of the form:
 
-The version suffix (_v01, _v02 …) increases when HEnEx republishes a corrected
-file; this fetcher probes from v01 upwards and keeps the highest available.
+  /c/document_library/get_file?uuid=<UUID>&groupId=20126
+
+We scrape the page once, match the desired delivery-day filename
+(`YYYYMMDD_EL-DAM_ResultsSummary_EN_v##.xlsx`) and resolve the UUID to a real
+download URL. The latest version (highest v##) per date wins.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -24,97 +27,112 @@ from openpyxl import load_workbook
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-URL_TEMPLATE = (
-    "https://www.enexgroup.gr/documents/20126/366820/"
-    "{ymd}_EL-DAM_ResultsSummary_EN_v{ver:02d}.xlsx"
-)
+LISTING_PAGE = "https://www.enexgroup.gr/markets-publications-el-day-ahead-market"
+BASE = "https://www.enexgroup.gr"
 USER_AGENT = (
-    "Mozilla/5.0 (compatible; HENEX-Hackathon-Optimiser/1.0; "
-    "+https://github.com/anthropics/claude-code)"
+    "Mozilla/5.0 (compatible; HENEX-Hackathon-Optimiser/1.0)"
+)
+
+_FILE_LINK_RE = re.compile(
+    r'href=["\'](/c/document_library/get_file\?[^"\']+?)["\'][^>]*>'
+    r'\s*(?:<[^>]+>\s*)*'
+    r'(?:&nbsp;\s*)*'
+    r'(\d{8})_EL-DAM_ResultsSummary_EN_v(\d{2})\.xlsx',
+    re.IGNORECASE,
 )
 
 
-def fetch_dam_xlsx(target_date: date, max_version: int = 10) -> tuple[bytes, str]:
-    """Download the latest available DAM Results Summary XLSX for `target_date`.
+def _list_published_files() -> dict[str, tuple[int, str]]:
+    """Return {YYYYMMDD: (version, absolute_url)} for the latest version of each day."""
+    req = Request(LISTING_PAGE, headers={"User-Agent": USER_AGENT})
+    with urlopen(req, timeout=30) as resp:
+        html = resp.read().decode("utf-8", errors="replace")
 
-    Returns (raw_bytes, source_url). Raises RuntimeError if no version is found.
+    latest: dict[str, tuple[int, str]] = {}
+    for href, ymd, ver_str in _FILE_LINK_RE.findall(html):
+        ver = int(ver_str)
+        url = href if href.startswith("http") else BASE + href
+        url = url.replace("&amp;", "&")
+        existing = latest.get(ymd)
+        if existing is None or ver > existing[0]:
+            latest[ymd] = (ver, url)
+    return latest
+
+
+def fetch_dam_xlsx(target_date: date) -> tuple[bytes, str]:
+    """Download the latest published DAM Results Summary XLSX for `target_date`.
+
+    Returns (raw_bytes, source_url). Raises RuntimeError if not yet published.
     """
     ymd = target_date.strftime("%Y%m%d")
-    last_bytes: bytes | None = None
-    last_url: str | None = None
-
-    for ver in range(1, max_version + 1):
-        url = URL_TEMPLATE.format(ymd=ymd, ver=ver)
-        req = Request(url, headers={"User-Agent": USER_AGENT})
-        try:
-            with urlopen(req, timeout=20) as resp:
-                if resp.status != 200:
-                    continue
-                last_bytes = resp.read()
-                last_url = url
-        except HTTPError as e:
-            if e.code == 404:
-                if last_bytes is not None:
-                    break
-                continue
-            raise
-        except URLError:
-            continue
-
-    if last_bytes is None:
+    listing = _list_published_files()
+    if ymd not in listing:
+        available = sorted(listing.keys(), reverse=True)[:5]
         raise RuntimeError(
-            f"No DAM Results Summary published for {target_date.isoformat()} yet "
-            f"(probed v01–v{max_version:02d} at {URL_TEMPLATE.split('{ymd}')[0]}…)."
+            f"No DAM Results Summary published for {target_date.isoformat()} on "
+            f"{LISTING_PAGE}. Most recent available: {available}"
         )
-
-    return last_bytes, last_url
+    _, url = listing[ymd]
+    req = Request(url, headers={"User-Agent": USER_AGENT})
+    with urlopen(req, timeout=60) as resp:
+        return resp.read(), url
 
 
 def parse_dam_xlsx(xlsx_bytes: bytes, target_date: date) -> pd.DataFrame:
     """Parse the HEnEx DAM Results Summary workbook and return a 96-row
     DataFrame with columns (timestamp, price_eur_mwh) at 15-min MTU.
 
-    The workbook layout: a "Market Clearing Price" or "MCP" row whose 24 hourly
-    values lie horizontally. We locate it by scanning the first column for the
-    label, then read the numeric cells to its right.
+    Layout (verified for v01 files since the 15-min MTU rollout):
+      Sheet `SPOT_Summary (SELL)` or `(BUY)` — both carry the same MCP row.
+      First column row label `Greece Mainland  (15min MTU)` → 96 numeric cells
+      to its right, one per 15-min MTU of the delivery day.
     """
     from io import BytesIO
 
     wb = load_workbook(filename=BytesIO(xlsx_bytes), data_only=True)
 
-    hourly: list[float] | None = None
+    candidate_sheets = [
+        s for s in wb.sheetnames
+        if "spot" in s.lower() or "coupling" in s.lower()
+    ] or wb.sheetnames
 
-    for ws in wb.worksheets:
+    prices: list[float] | None = None
+    for sheet_name in candidate_sheets:
+        try:
+            ws = wb[sheet_name]
+        except KeyError:
+            continue
+        if not hasattr(ws, "iter_rows"):
+            continue
         for row in ws.iter_rows(values_only=True):
             if not row:
                 continue
             label = row[0]
             if not isinstance(label, str):
                 continue
-            label_norm = label.strip().lower()
-            if "market clearing price" in label_norm or label_norm in {"mcp", "mcp (€/mwh)"}:
+            norm = " ".join(label.lower().split())
+            if "greece" in norm and "15min" in norm and "mcp" in norm:
                 values = [c for c in row[1:] if isinstance(c, (int, float))]
-                if len(values) >= 24:
-                    hourly = [float(v) for v in values[:24]]
+                if len(values) >= 96:
+                    prices = [float(v) for v in values[:96]]
                     break
-        if hourly is not None:
+        if prices is not None:
             break
 
-    if hourly is None:
+    if prices is None:
         raise ValueError(
-            "Could not locate the Market Clearing Price row in the DAM XLSX. "
+            "Could not locate the 15-min MCP row in the DAM XLSX. "
             "HEnEx may have changed the workbook layout."
         )
 
     base = datetime.combine(target_date, datetime.min.time())
-    rows = []
-    for h in range(24):
-        for q in range(4):
-            rows.append({
-                "timestamp": base + timedelta(hours=h, minutes=15 * q),
-                "price_eur_mwh": hourly[h],
-            })
-
+    rows = [
+        {
+            "timestamp": base + timedelta(minutes=15 * i),
+            "price_eur_mwh": prices[i],
+        }
+        for i in range(96)
+    ]
     return pd.DataFrame(rows)
 
 
