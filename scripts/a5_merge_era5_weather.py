@@ -154,12 +154,17 @@ def main():
             weather_cols.append(col)
 
     weather_to_join = weather_15min[weather_cols].copy()
+    weather_value_cols = [c for c in weather_cols if c != "timestamp"]
+
+    existing_weather_cols = [c for c in weather_value_cols if c in history.columns]
+    if existing_weather_cols:
+        print(f"\nDropping {len(existing_weather_cols)} existing weather columns before refresh.")
+        history = history.drop(columns=existing_weather_cols)
 
     # Merge
     merged = history.merge(weather_to_join, on="timestamp", how="left")
 
     # Report coverage
-    weather_value_cols = [c for c in weather_cols if c != "timestamp"]
     for col in weather_value_cols[:3]:  # Show first 3 as sample
         non_null = merged[col].notna().sum()
         pct = 100 * non_null / len(merged)

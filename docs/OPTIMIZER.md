@@ -170,6 +170,46 @@ Only if both are ruled out, introduce a binary `mode_t ∈ {0, 1}` with `charge_
 
 The `binding_constraints` field is gold for the demo narrative — it tells you *why* the schedule did what it did (was it the throughput cap, the SoC bound, the calendar fade penalty?).
 
+## Forecast-to-optimisation bridge
+
+The practical connector is:
+
+```powershell
+python -m scripts.run_forecast_optimisation --forecast-csv data/processed/<date>_forecast.csv
+```
+
+For a held-out backtest day:
+
+```powershell
+python -m scripts.run_forecast_optimisation `
+  --forecast-csv data/processed/forecast_walkforward_v1_with_weather_calibrated.csv `
+  --date 2025-10-05
+```
+
+For a live day, first generate the forecast, then optimise:
+
+```powershell
+python -m scripts.run_forecast_optimisation --date 2026-05-01 --generate-forecast
+```
+
+The bridge consumes `timestamp`, `p10_eur_mwh`, `p50_eur_mwh`, `p90_eur_mwh`
+and writes:
+
+```text
+optimisation/results/<date>_forecast_dispatch_schedule.csv
+optimisation/results/<date>_forecast_dispatch_metrics.csv
+```
+
+The LP uses a conservative price transform:
+
+```text
+charge_price_t    = p50_t + lambda * (p90_t - p10_t) / 2
+discharge_price_t = p50_t - lambda * (p90_t - p10_t) / 2
+```
+
+This turns calibrated forecast uncertainty into a spread buffer before the
+battery acts.
+
 ## What to report in the pitch
 
 For a chosen demo day, show:

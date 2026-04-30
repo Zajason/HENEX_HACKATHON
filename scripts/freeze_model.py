@@ -27,7 +27,7 @@ from pathlib import Path
 import pandas as pd
 
 from forecast.calibration import build_residual_quantile_table
-from forecast.features import LABEL_COL
+from forecast.features import LABEL_COL, build_feature_frame
 from forecast.tier0 import fit_tier0_model
 
 DEFAULT_HISTORY = Path("data/processed/history.parquet")
@@ -110,6 +110,10 @@ def main() -> None:
     model = fit_tier0_model(history)
     print(f"[freeze] backend: {model.backend} | "
           f"feature_cols: {len(model.feature_cols)}")
+    feature_frame = build_feature_frame(history)
+    effective_train = feature_frame.dropna(subset=[LABEL_COL, *model.feature_cols])
+    print(f"[freeze] effective training rows after feature NA drop: {len(effective_train):,} | "
+          f"{effective_train['timestamp'].min()} -> {effective_train['timestamp'].max()}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     model_path = args.output_dir / "tier0.pkl"
@@ -151,9 +155,12 @@ def main() -> None:
         "model_class": "Tier0Model",
         "quantiles": list(model.quantiles),
         "feature_cols": list(model.feature_cols),
-        "training_rows": int(len(history)),
-        "training_start": str(history["timestamp"].min()),
-        "training_end": str(history["timestamp"].max()),
+        "history_rows": int(len(history)),
+        "history_start": str(history["timestamp"].min()),
+        "history_end": str(history["timestamp"].max()),
+        "training_rows": int(len(effective_train)),
+        "training_start": str(effective_train["timestamp"].min()),
+        "training_end": str(effective_train["timestamp"].max()),
         "mad_variant": args.variant,
         "mad_source": str(mad_source) if mad_source.exists() else None,
         "mad_era": "15min" if not args.era_all else "all",

@@ -16,12 +16,13 @@ warnings.filterwarnings("ignore")
 from pathlib import Path
 import pandas as pd
 
-from forecast.features import LABEL_COL
+from forecast.features import LABEL_COL, LGBM_FEATURE_COLS
 from forecast.tier0 import fit_tier0_model
 from forecast.backtest import run_walk_forward_backtest, load_history_frame
 
 HISTORY_PATH = Path("data/processed/history.parquet")
 OUTPUT_PATH = Path("data/processed/forecast_walkforward_v1_with_weather.parquet")
+MIN_WEATHER_ROWS_FOR_BACKTEST = 10_000
 
 
 def model_factory(train_df: pd.DataFrame):
@@ -40,14 +41,30 @@ def main():
     weather_cols = [c for c in df.columns if any(
         c.startswith(p) for p in ("solar_weighted_", "wind_weighted_", "load_weighted_")
     )]
+    selected_weather_cols = [c for c in weather_cols if c in LGBM_FEATURE_COLS]
+    usable_weather_cols = [
+        c for c in selected_weather_cols if df[c].notna().sum() >= MIN_WEATHER_ROWS_FOR_BACKTEST
+    ]
+    excluded_weather_cols = [c for c in selected_weather_cols if c not in usable_weather_cols]
     print(f"Weather columns kept ({len(weather_cols)}):")
     for c in weather_cols:
         print(f"  - {c}")
+    if excluded_weather_cols:
+        print(
+            "\nExcluding selected weather columns with insufficient coverage "
+            f"(<{MIN_WEATHER_ROWS_FOR_BACKTEST} non-null rows):"
+        )
+        for c in excluded_weather_cols:
+            print(f"  - {c}: {df[c].notna().sum()} rows")
+        df = df.drop(columns=excluded_weather_cols)
 
     pre_drop = len(df)
-    df = df.dropna(subset=["load_forecast_mw", "res_forecast_mw", LABEL_COL])
-    print(f"\nDropped {pre_drop - len(df)} rows missing IPTO/price.")
+    required_cols = ["load_forecast_mw", "res_forecast_mw", LABEL_COL] + usable_weather_cols
+    df = df.dropna(subset=required_cols)
+    print(f"\nDropped {pre_drop - len(df)} rows missing IPTO/price/selected weather.")
     print(f"Remaining rows: {len(df)}")
+    if not df.empty:
+        print(f"Backtest weather-covered range: {df['timestamp'].min()} -> {df['timestamp'].max()}")
 
     print("\nStarting walk-forward backtest (365d/30d/30d)...")
     result = run_walk_forward_backtest(

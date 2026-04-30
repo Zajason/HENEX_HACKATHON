@@ -33,7 +33,101 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(self._load_realized_pnl())
             return
 
+        if self._path == "/api/backtest/summary":
+            self._handle_backtest_summary()
+            return
+
         self._send_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
+
+    def _handle_backtest_summary(self) -> None:
+        from urllib.parse import parse_qs
+        params = parse_qs(urlparse(self.path).query)
+
+        def _get(key: str, default: str) -> str:
+            v = params.get(key, [default])
+            return v[0] if v else default
+
+        try:
+            tier = int(_get("tier", "1"))
+            lambda_str = _get("lambda", "")
+            lambda_val = float(lambda_str) if lambda_str else None
+            capex_per_mwh = float(_get("capex_per_mwh", "220000"))
+            energy_mwh = float(_get("energy_mwh", "300"))
+            rf_pct = float(_get("rf_pct", "3"))
+        except ValueError as exc:
+            self._send_json({"error": f"bad query: {exc}"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        path = _resolve_summary_path(tier, lambda_val)
+        if not path or not path.exists():
+            self._send_json(
+                {
+                    "error": "summary not found for tier+lambda combo",
+                    "tier": tier,
+                    "lambda": lambda_val,
+                    "tried_path": str(path) if path else None,
+                },
+                status=HTTPStatus.NOT_FOUND,
+            )
+            return
+
+        row = _read_single_row_csv(path)
+        try:
+            profit = float(row["total_realized_profit_eur"])
+            days = int(row["days"])
+            throughput = float(row["total_throughput_mwh"])
+        except (KeyError, TypeError, ValueError) as exc:
+            self._send_json(
+                {"error": f"summary missing required fields: {exc}", "path": str(path)},
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+            return
+
+        capex_eur = capex_per_mwh * energy_mwh
+        annualized_profit = profit * 365.0 / days if days else 0.0
+        return_pct = (annualized_profit / capex_eur * 100.0) if capex_eur > 0 else None
+        excess_pct = (return_pct - rf_pct) if return_pct is not None else None
+
+        cycles_per_day = float(row.get("mean_equivalent_cycles_per_day") or 0.0)
+        life_years_6000 = (6000.0 / (cycles_per_day * 365.0)) if cycles_per_day > 0 else None
+        life_years_8000 = (8000.0 / (cycles_per_day * 365.0)) if cycles_per_day > 0 else None
+
+        result = {
+            "tier": tier,
+            "lambda": lambda_val,
+            "source_path": str(path),
+            "days": days,
+            "start_date": row.get("start_date"),
+            "end_date": row.get("end_date"),
+            # raw model
+            "profit_eur": profit,
+            "annualized_profit_eur": annualized_profit,
+            "throughput_mwh": throughput,
+            "throughput_gwh": throughput / 1000.0,
+            "cycles_per_day": cycles_per_day,
+            "win_rate": row.get("win_rate"),
+            "loss_rate": row.get("loss_rate"),
+            "worst_day_eur": row.get("worst_day_profit_eur"),
+            "best_day_eur": row.get("best_day_profit_eur"),
+            "cvar5_eur": row.get("cvar5_daily_profit_eur"),
+            "max_drawdown_eur": row.get("max_drawdown_eur"),
+            "pnl_sharpe_annualized": row.get("annualized_pnl_sharpe") or row.get("annualized_sharpe"),
+            "pnl_sortino_annualized": row.get("annualized_pnl_sortino") or row.get("annualized_sortino"),
+            # CAPEX-dependent (recomputed)
+            "capex_eur": capex_eur,
+            "capex_per_mwh": capex_per_mwh,
+            "energy_mwh": energy_mwh,
+            "risk_free_rate_pct": rf_pct,
+            "annualized_return_pct": return_pct,
+            "annualized_excess_return_pct": excess_pct,
+            # life
+            "life_years_6000c": life_years_6000,
+            "life_years_8000c": life_years_8000,
+            # forecast quality
+            "forecast_vs_realized_eur": row.get("forecast_vs_realized_profit_eur"),
+            "expected_p50_profit_eur": row.get("total_expected_p50_profit_eur"),
+        }
+        self._send_json(result)
 
     def _load_realized_pnl(self) -> dict[str, Any]:
         if not REALIZED_MTU_FILE.exists() or not REALIZED_SUMMARY_FILE.exists():
@@ -178,6 +272,42 @@ def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
     with open(path, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         return [{k: _coerce(v) for k, v in row.items()} for row in reader]
+
+
+def _resolve_summary_path(tier: int, lambda_val: float | None) -> Path | None:
+    """Map (tier, lambda) to the precomputed summary CSV.
+    Tier 0 has lambda sweeps under sweep_lambda_<x.xx>; Tier 3 under tier3_sweep_<x.xx>.
+    Tier 1 / Tier 2 only have a default run today.
+    """
+    if tier == 0:
+        if lambda_val is None or abs(lambda_val - 0.10) < 1e-9:
+            return RESULTS_DIR / "2025_forecast_optimizer_summary.csv"
+        # Try sweep_lambda_<X.XX> directory; lambdas saved as 0.00..0.35 in 2-digit form.
+        candidates = [
+            RESULTS_DIR / f"sweep_lambda_{lambda_val:.2f}" / "2025_forecast_optimizer_summary.csv",
+            RESULTS_DIR / f"sweep_lambda_{lambda_val:.1f}" / "2025_forecast_optimizer_summary.csv",
+        ]
+        for c in candidates:
+            if c.exists():
+                return c
+        return candidates[0]
+    if tier == 1:
+        if lambda_val is None:
+            return RESULTS_DIR / "2025_tier1_optimizer_summary.csv"
+        sweep = RESULTS_DIR / f"tier1_sweep_{lambda_val:.2f}" / "2025_tier1_optimizer_summary.csv"
+        if sweep.exists():
+            return sweep
+        return RESULTS_DIR / "2025_tier1_optimizer_summary.csv"
+    if tier == 2:
+        return RESULTS_DIR / "2025_tier2_optimizer_summary.csv"
+    if tier == 3:
+        if lambda_val is None or abs(lambda_val - 0.50) < 1e-9:
+            return RESULTS_DIR / "2025_tier3_optimizer_summary.csv"
+        candidates = [
+            RESULTS_DIR / f"tier3_sweep_{lambda_val:.2f}" / "2025_tier3_optimizer_summary.csv",
+        ]
+        return candidates[0]
+    return None
 
 
 def main() -> None:

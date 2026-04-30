@@ -7,6 +7,7 @@ pytz
 beautifulsoup4
 yfinance
 scikit-learn
+scipy
 lightgbm
 prophet
 pyarrow

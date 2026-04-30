@@ -30,7 +30,7 @@
       "id": "battery-1777546030765",
       "name": "Battery block 3",
       "quantity": 1,
-      "capacity": 30.0,
+      "capacity": 10.0,
       "power": 5.0,
       "socMin": 10.0,
       "socMax": 90.0,
