@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-const SCHEDULE = join(ROOT, 'optimisation', 'results', 'tier_final_schedule.csv');
+const SCHEDULE = join(ROOT, 'optimisation', 'results', 'tier_final2_schedule.csv');
 const CONFIG = join(ROOT, 'api', 'data', 'battery_config.json');
 const MTU_OUT = join(ROOT, 'optimisation', 'results', 'realized_pnl_mtu.csv');
 const SUM_OUT = join(ROOT, 'optimisation', 'results', 'realized_pnl_summary.csv');

@@ -33,6 +33,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(self._load_realized_pnl())
             return
 
+        if self._path == "/api/optimise/status":
+            from api.scheduler import get_state
+            self._send_json(get_state())
+            return
+
         if self._path == "/api/backtest/summary":
             self._handle_backtest_summary()
             return
@@ -153,6 +158,14 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self._path == "/api/realized-pnl/fetch":
             self._fetch_and_evaluate()
+            return
+        if self._path == "/api/optimise/run":
+            from api.scheduler import get_state, trigger_async
+            if get_state()["running"]:
+                self._send_json({"error": "Optimisation already running"}, status=HTTPStatus.CONFLICT)
+                return
+            trigger_async()
+            self._send_json({"ok": True, "started": True, "state": get_state()})
             return
         self._save_config()
 
@@ -330,6 +343,8 @@ def _resolve_summary_path(tier: int, lambda_val: float | None) -> Path | None:
 
 
 def main() -> None:
+    from api.scheduler import start_scheduler
+    start_scheduler()
     server = ThreadingHTTPServer((HOST, PORT), ApiHandler)
     print(f"Battery config API listening on http://{HOST}:{PORT}")
     server.serve_forever()
