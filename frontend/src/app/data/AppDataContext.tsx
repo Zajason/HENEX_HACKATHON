@@ -36,14 +36,22 @@ export type TradingSummary = {
   efficiencyChange: number;
 };
 
-export type AssetConfig = {
-  batteries: number;
+export type BatteryUnitConfig = {
+  id: string;
+  name: string;
+  quantity: number;
   capacity: number;
   power: number;
+  socMin: number;
+  socMax: number;
+  socInitial: number;
   chargeEff: number;
   dischargeEff: number;
   degradationCost: number;
-  mode: 'conservative' | 'aggressive';
+};
+
+export type AssetConfig = {
+  batteries: BatteryUnitConfig[];
 };
 
 const assetConfigKey = 'henex.assetConfig.v1';
@@ -112,13 +120,21 @@ export const defaultDispatchWindows: DispatchWindow[] = [
 ];
 
 export const defaultAssetConfig: AssetConfig = {
-  batteries: 4,
-  capacity: 10,
-  power: 5,
-  chargeEff: 92,
-  dischargeEff: 90,
-  degradationCost: 2.5,
-  mode: 'aggressive',
+  batteries: [
+    {
+      id: 'battery-1',
+      name: 'Battery block 1',
+      quantity: 1,
+      capacity: 10,
+      power: 5,
+      socMin: 10,
+      socMax: 90,
+      socInitial: 15,
+      chargeEff: 92,
+      dischargeEff: 90,
+      degradationCost: 2.5,
+    },
+  ],
 };
 
 const defaultTradingSummary: TradingSummary = {
@@ -152,7 +168,48 @@ function loadAssetConfig() {
 
   try {
     const saved = window.localStorage.getItem(assetConfigKey);
-    return saved ? { ...defaultAssetConfig, ...JSON.parse(saved) } : defaultAssetConfig;
+    if (!saved) return defaultAssetConfig;
+
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed?.batteries)) {
+      return {
+        batteries: parsed.batteries.map((battery: Partial<BatteryUnitConfig>, index: number) => ({
+          id: battery.id ?? `battery-${index + 1}`,
+          name: battery.name ?? `Battery block ${index + 1}`,
+          quantity: battery.quantity ?? 1,
+          capacity: battery.capacity ?? 10,
+          power: battery.power ?? 5,
+          socMin: battery.socMin ?? 10,
+          socMax: battery.socMax ?? 90,
+          socInitial: battery.socInitial ?? 15,
+          chargeEff: battery.chargeEff ?? 92,
+          dischargeEff: battery.dischargeEff ?? 90,
+          degradationCost: battery.degradationCost ?? 2.5,
+        })),
+      };
+    }
+
+    if (typeof parsed?.batteries === 'number') {
+      return {
+        batteries: [
+          {
+            id: 'battery-block-1',
+            name: 'Battery block 1',
+            quantity: Math.max(parsed.batteries, 1),
+            capacity: parsed.capacity ?? 10,
+            power: parsed.power ?? 5,
+            socMin: parsed.socMin ?? 10,
+            socMax: parsed.socMax ?? 90,
+            socInitial: parsed.socInitial ?? 15,
+            chargeEff: parsed.chargeEff ?? 92,
+            dischargeEff: parsed.dischargeEff ?? 90,
+            degradationCost: parsed.degradationCost ?? 2.5,
+          },
+        ],
+      };
+    }
+
+    return defaultAssetConfig;
   } catch {
     return defaultAssetConfig;
   }

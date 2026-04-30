@@ -2,6 +2,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { PricePoint } from '../../data/AppDataContext';
 
 export function PriceChart({ data }: { data: PricePoint[] }) {
+  const xAxisInterval = data.length > 48 ? 7 : 3;
+
   return (
     <ResponsiveContainer width="100%" height={250}>
       <LineChart data={data}>
@@ -20,7 +22,8 @@ export function PriceChart({ data }: { data: PricePoint[] }) {
           dataKey="time"
           stroke="#475569"
           tick={{ fill: '#94A3B8' }}
-          interval={3}
+          interval={xAxisInterval}
+          minTickGap={24}
         />
         <YAxis
           stroke="#475569"

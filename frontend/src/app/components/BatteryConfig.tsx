@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Battery, TrendingUp } from 'lucide-react';
+import { Battery, Plus, Trash2, TrendingUp } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { BatteryUnitConfig } from '../data/AppDataContext';
 import { useAppData } from '../data/AppDataContext';
 
 const previewData = [
@@ -20,7 +21,22 @@ export function BatteryConfig() {
   const [config, setConfig] = useState(assetConfig);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  const estimatedProfit = Math.round(config.batteries * config.capacity * 23.75 * (config.mode === 'aggressive' ? 1.2 : 0.9));
+  const totalBatteryUnits = config.batteries.reduce((sum, battery) => sum + battery.quantity, 0);
+  const totalCapacity = config.batteries.reduce((sum, battery) => sum + battery.quantity * battery.capacity, 0);
+  const totalPower = config.batteries.reduce((sum, battery) => sum + battery.quantity * battery.power, 0);
+  const totalDegradationPerCycle = config.batteries.reduce(
+    (sum, battery) => sum + battery.quantity * battery.degradationCost * battery.capacity,
+    0,
+  );
+  const weightedRoundTripEfficiency =
+    totalCapacity > 0
+      ? config.batteries.reduce(
+          (sum, battery) =>
+            sum + ((battery.chargeEff * battery.dischargeEff) / 100) * battery.quantity * battery.capacity,
+          0,
+        ) / totalCapacity
+      : 0;
+  const estimatedProfit = Math.round(totalCapacity * 23.75);
 
   useEffect(() => {
     setConfig(assetConfig);
@@ -29,6 +45,39 @@ export function BatteryConfig() {
   const updateConfig = (nextConfig: typeof config) => {
     setConfig(nextConfig);
     setSaveStatus('idle');
+  };
+
+  const updateBattery = (id: string, updates: Partial<BatteryUnitConfig>) => {
+    updateConfig({
+      batteries: config.batteries.map((battery) => (battery.id === id ? { ...battery, ...updates } : battery)),
+    });
+  };
+
+  const addBattery = () => {
+    const nextNumber = config.batteries.length + 1;
+    updateConfig({
+      batteries: [
+        ...config.batteries,
+        {
+          id: `battery-${Date.now()}`,
+          name: `Battery block ${nextNumber}`,
+          quantity: 1,
+          capacity: 10,
+          power: 5,
+          socMin: 10,
+          socMax: 90,
+          socInitial: 15,
+          chargeEff: 92,
+          dischargeEff: 90,
+          degradationCost: 2.5,
+        },
+      ],
+    });
+  };
+
+  const removeBattery = (id: string) => {
+    if (config.batteries.length === 1) return;
+    updateConfig({ batteries: config.batteries.filter((battery) => battery.id !== id) });
   };
 
   const handleSave = async () => {
@@ -46,103 +95,132 @@ export function BatteryConfig() {
       <div className="mb-8">
         <div className="eyebrow mb-3">Asset setup</div>
         <h1 className="mb-2 text-3xl font-semibold text-white">Battery fleet</h1>
-        <p className="text-slate-400">Tune plant limits, efficiencies, and trading posture before dispatch.</p>
+        <p className="text-slate-400">Build battery blocks and tune the specs shared by each block.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Left Side - Form */}
         <div className="surface rounded-md p-6">
-          <h3 className="mb-6 flex items-center gap-2 text-white">
-            <Battery className="w-5 h-5" />
-            Plant parameters
-          </h3>
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h3 className="flex items-center gap-2 text-white">
+              <Battery className="h-5 w-5" />
+              Battery grid
+            </h3>
+            <button
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-sky-300/40 bg-sky-300/15 text-sky-100 transition-colors hover:bg-sky-300/20"
+              onClick={addBattery}
+              aria-label="Add battery"
+              title="Add battery"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
 
           <div className="space-y-6">
-            <div>
-              <label className="mb-2 block text-sm text-slate-400">Number of batteries</label>
-              <input
-                type="number"
-                value={config.batteries}
-                onChange={(e) => updateConfig({ ...config, batteries: parseInt(e.target.value) || 0 })}
-                className="field-control"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-400">Capacity per unit (MWh)</label>
-              <input
-                type="number"
-                value={config.capacity}
-                onChange={(e) => updateConfig({ ...config, capacity: parseFloat(e.target.value) || 0 })}
-                className="field-control"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-400">Power limit (MW)</label>
-              <input
-                type="number"
-                value={config.power}
-                onChange={(e) => updateConfig({ ...config, power: parseFloat(e.target.value) || 0 })}
-                className="field-control"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm text-slate-400">Charge efficiency (%)</label>
-                <input
-                  type="number"
-                  value={config.chargeEff}
-                  onChange={(e) => updateConfig({ ...config, chargeEff: parseFloat(e.target.value) || 0 })}
-                  className="field-control"
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm text-slate-400">Discharge efficiency (%)</label>
-                <input
-                  type="number"
-                  value={config.dischargeEff}
-                  onChange={(e) => updateConfig({ ...config, dischargeEff: parseFloat(e.target.value) || 0 })}
-                  className="field-control"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-400">Degradation cost (€/MWh)</label>
-              <input
-                type="number"
-                step="0.1"
-                value={config.degradationCost}
-                onChange={(e) => updateConfig({ ...config, degradationCost: parseFloat(e.target.value) || 0 })}
-                className="field-control"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-400">Trading posture</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => updateConfig({ ...config, mode: 'conservative' })}
-                  className={`flex-1 py-3 px-4 rounded-md transition-all ${
-                    config.mode === 'conservative'
-                      ? 'border border-sky-300/50 bg-sky-300/15 text-sky-100'
-                      : 'border border-slate-700/50 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
-                  }`}
-                >
-                  Conservative
-                </button>
-                <button
-                  onClick={() => updateConfig({ ...config, mode: 'aggressive' })}
-                  className={`flex-1 py-3 px-4 rounded-md transition-all ${
-                    config.mode === 'aggressive'
-                      ? 'border border-amber-300/50 bg-amber-300/15 text-amber-100'
-                      : 'border border-slate-700/50 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
-                  }`}
-                >
-                  Aggressive
-                </button>
+            <div className="overflow-x-auto">
+              <div className="min-w-[1240px] space-y-3">
+                <div className="grid grid-cols-[1.2fr_72px_repeat(8,minmax(92px,1fr))_44px] gap-3 px-1 text-xs uppercase tracking-wide text-slate-500">
+                  <span>Name</span>
+                  <span>Qty</span>
+                  <span>Capacity (MWh)</span>
+                  <span>Power (MW)</span>
+                  <span>SoC min (%)</span>
+                  <span>SoC max (%)</span>
+                  <span>Initial SoC (%)</span>
+                  <span>Charge eff (%)</span>
+                  <span>Discharge eff (%)</span>
+                  <span>Degradation (EUR/MWh)</span>
+                  <span />
+                </div>
+                {config.batteries.map((battery) => (
+                  <div
+                    key={battery.id}
+                    className="grid grid-cols-[1.2fr_72px_repeat(8,minmax(92px,1fr))_44px] gap-3 rounded-md border border-slate-700/50 bg-white/[0.03] p-3"
+                  >
+                    <input
+                      value={battery.name}
+                      onChange={(e) => updateBattery(battery.id, { name: e.target.value })}
+                      className="field-control h-10"
+                      aria-label="Battery name"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={battery.quantity}
+                      onChange={(e) =>
+                        updateBattery(battery.id, { quantity: Math.max(parseInt(e.target.value, 10) || 1, 1) })
+                      }
+                      className="field-control h-10"
+                      aria-label="Quantity"
+                    />
+                    <input
+                      type="number"
+                      value={battery.capacity}
+                      onChange={(e) => updateBattery(battery.id, { capacity: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Capacity MWh"
+                    />
+                    <input
+                      type="number"
+                      value={battery.power}
+                      onChange={(e) => updateBattery(battery.id, { power: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Power MW"
+                    />
+                    <input
+                      type="number"
+                      value={battery.socMin}
+                      onChange={(e) => updateBattery(battery.id, { socMin: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Minimum state of charge percent"
+                    />
+                    <input
+                      type="number"
+                      value={battery.socMax}
+                      onChange={(e) => updateBattery(battery.id, { socMax: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Maximum state of charge percent"
+                    />
+                    <input
+                      type="number"
+                      value={battery.socInitial}
+                      onChange={(e) => updateBattery(battery.id, { socInitial: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Initial state of charge percent"
+                    />
+                    <input
+                      type="number"
+                      value={battery.chargeEff}
+                      onChange={(e) => updateBattery(battery.id, { chargeEff: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Charge efficiency percent"
+                    />
+                    <input
+                      type="number"
+                      value={battery.dischargeEff}
+                      onChange={(e) => updateBattery(battery.id, { dischargeEff: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Discharge efficiency percent"
+                    />
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={battery.degradationCost}
+                      onChange={(e) => updateBattery(battery.id, { degradationCost: parseFloat(e.target.value) || 0 })}
+                      className="field-control h-10"
+                      aria-label="Degradation cost EUR per MWh"
+                    />
+                    <button
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-rose-300/30 bg-rose-300/10 text-rose-100 transition-colors hover:bg-rose-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => removeBattery(battery.id)}
+                      disabled={config.batteries.length === 1}
+                      aria-label={`Remove ${battery.name}`}
+                      title="Remove battery"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -158,7 +236,6 @@ export function BatteryConfig() {
           </div>
         </div>
 
-        {/* Right Side - Preview */}
         <div className="space-y-6">
           <div className="surface rounded-md p-6">
             <h3 className="mb-4 flex items-center gap-2 text-white">
@@ -173,7 +250,7 @@ export function BatteryConfig() {
               </div>
               <div className="rounded-md border border-sky-300/25 bg-sky-300/10 p-4">
                 <div className="mb-1 text-sm text-sky-200">Total capacity</div>
-                <div className="text-2xl text-white">{config.batteries * config.capacity} MWh</div>
+                <div className="text-2xl text-white">{totalCapacity.toFixed(1)} MWh</div>
               </div>
             </div>
 
@@ -212,22 +289,24 @@ export function BatteryConfig() {
             <h3 className="text-white mb-4">System Summary</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">Round-trip efficiency</span>
-                <span className="text-white">{((config.chargeEff * config.dischargeEff) / 100).toFixed(1)}%</span>
+                <span className="text-slate-400">Battery units</span>
+                <span className="text-white">{totalBatteryUnits}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Max daily cycles</span>
-                <span className="text-white">{Math.floor(24 / (config.capacity / config.power))}</span>
+                <span className="text-slate-400">Battery blocks</span>
+                <span className="text-white">{config.batteries.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Degradation per cycle</span>
-                <span className="text-white">€{(config.degradationCost * config.capacity * config.batteries).toFixed(2)}</span>
+                <span className="text-slate-400">Total power limit</span>
+                <span className="text-white">{totalPower.toFixed(1)} MW</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Trading posture</span>
-                <span className={config.mode === 'aggressive' ? 'text-amber-200' : 'text-sky-200'}>
-                  {config.mode.charAt(0).toUpperCase() + config.mode.slice(1)}
-                </span>
+                <span className="text-slate-400">Weighted round-trip efficiency</span>
+                <span className="text-white">{weightedRoundTripEfficiency.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Degradation per full cycle</span>
+                <span className="text-white">€{totalDegradationPerCycle.toFixed(2)}</span>
               </div>
             </div>
           </div>
