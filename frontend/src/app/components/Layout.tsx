@@ -1,14 +1,13 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { BarChart3, Battery, Gauge, LayoutDashboard, Wallet } from "lucide-react";
+import { BarChart3, Battery, Gauge, Wallet } from "lucide-react";
 
 export function Layout() {
   const location = useLocation();
 
   const navItems = [
-    { path: "/", label: "Live Desk", icon: LayoutDashboard },
+    { path: "/", label: "Realized PnL", icon: Wallet },
     { path: "/config", label: "Assets", icon: Battery },
     { path: "/backtest", label: "Backtest", icon: BarChart3 },
-    { path: "/realized-pnl", label: "Realized PnL", icon: Wallet },
   ];
 
   return (
