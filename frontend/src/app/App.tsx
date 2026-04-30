@@ -1,10 +1,13 @@
 import { RouterProvider } from 'react-router';
+import { AppDataProvider } from './data/AppDataContext';
 import { router } from './routes';
 
 export default function App() {
   return (
     <div className="dark">
-      <RouterProvider router={router} />
+      <AppDataProvider>
+        <RouterProvider router={router} />
+      </AppDataProvider>
     </div>
   );
 }

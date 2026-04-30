@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { BarChart3, Battery, Gauge, LayoutDashboard, Settings, Target } from "lucide-react";
+import { BarChart3, Battery, Gauge, LayoutDashboard, Settings } from "lucide-react";
 
 export function Layout() {
   const location = useLocation();
@@ -7,28 +7,30 @@ export function Layout() {
   const navItems = [
     { path: "/", label: "Live Desk", icon: LayoutDashboard },
     { path: "/config", label: "Assets", icon: Battery },
-    { path: "/strategy", label: "Dispatch Plan", icon: Target },
     { path: "/backtest", label: "Backtest", icon: BarChart3 },
     { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-[#080c10] text-slate-100">
+    <div className="min-h-screen text-slate-100">
       {/* Sidebar */}
-      <aside className="border-b border-slate-700/30 bg-[#0b1016] p-4 md:fixed md:left-0 md:top-0 md:h-full md:w-64 md:border-b-0 md:border-r md:p-6">
-        <div className="mb-4 md:mb-8">
+      <aside className="border-b border-slate-700/30 bg-[#090e13]/95 p-4 md:fixed md:left-0 md:top-0 md:h-full md:w-64 md:border-b-0 md:border-r md:p-5">
+        <div className="mb-5 md:mb-9">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/30 bg-emerald-300/10">
-              <Gauge className="h-5 w-5 text-emerald-200" />
+            <div className="flex h-9 w-9 items-center justify-center rounded border border-slate-600/70 bg-[#111922]">
+              <Gauge className="h-4 w-4 text-[#9ed9c5]" />
             </div>
             <div>
-              <div className="font-semibold text-white">HENEX Dispatch</div>
-              <div className="text-xs text-slate-400">Battery trading desk</div>
+              <div className="text-[0.95rem] font-semibold text-white">HENEX Dispatch</div>
+              <div className="text-xs text-slate-500">BESS trading desk</div>
             </div>
           </div>
         </div>
 
-        <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-2 md:overflow-visible md:pb-0">
+        <div className="mb-2 hidden text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-600 md:block">
+          Workspace
+        </div>
+        <nav className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-1 md:overflow-visible md:pb-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -36,10 +38,10 @@ export function Layout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex shrink-0 items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-all ${
+                className={`flex shrink-0 items-center gap-3 rounded-md border px-3 py-2.5 text-sm transition-all ${
                   isActive
-                    ? 'border-emerald-300/30 bg-emerald-300/10 text-white shadow-[inset_3px_0_0_rgba(110,231,183,0.7)]'
-                    : 'border-transparent text-slate-400 hover:border-slate-700/70 hover:bg-white/[0.03] hover:text-white'
+                    ? 'border-slate-700/70 bg-[#141c24] text-white shadow-[inset_2px_0_0_#9ed9c5]'
+                    : 'border-transparent text-slate-400 hover:bg-white/[0.025] hover:text-slate-200'
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -50,12 +52,12 @@ export function Layout() {
         </nav>
 
         <div className="mt-4 md:absolute md:bottom-6 md:left-6 md:right-6 md:mt-0">
-          <div className="surface-muted rounded-lg p-4">
+          <div className="surface-muted rounded-md p-4">
             <div className="flex items-center gap-2 mb-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-300"></div>
-              <span className="text-xs uppercase tracking-wide text-slate-500">Market link</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-[#9ed9c5]"></div>
+              <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">Market link</span>
             </div>
-            <div className="text-sm text-white">Forecasts synced</div>
+            <div className="text-sm text-white">Feed connected</div>
             <div className="mt-1 text-xs text-slate-500">Last update 08:45 EET</div>
           </div>
         </div>

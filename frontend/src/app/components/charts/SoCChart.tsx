@@ -1,33 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { SocPoint } from '../../data/AppDataContext';
 
-const data = [
-  { time: '00:00', soc: 50 },
-  { time: '01:00', soc: 55 },
-  { time: '02:00', soc: 62 },
-  { time: '03:00', soc: 70 },
-  { time: '04:00', soc: 78 },
-  { time: '05:00', soc: 82 },
-  { time: '06:00', soc: 85 },
-  { time: '07:00', soc: 85 },
-  { time: '08:00', soc: 85 },
-  { time: '09:00', soc: 78 },
-  { time: '10:00', soc: 70 },
-  { time: '11:00', soc: 62 },
-  { time: '12:00', soc: 52 },
-  { time: '13:00', soc: 42 },
-  { time: '14:00', soc: 35 },
-  { time: '15:00', soc: 28 },
-  { time: '16:00', soc: 20 },
-  { time: '17:00', soc: 12 },
-  { time: '18:00', soc: 5 },
-  { time: '19:00', soc: 8 },
-  { time: '20:00', soc: 15 },
-  { time: '21:00', soc: 22 },
-  { time: '22:00', soc: 30 },
-  { time: '23:00', soc: 38 },
-];
-
-export function SoCChart() {
+export function SoCChart({ data }: { data: SocPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={250}>
       <AreaChart data={data}>

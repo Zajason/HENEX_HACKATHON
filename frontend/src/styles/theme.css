@@ -126,7 +126,11 @@
   }
 
   body {
-    background: var(--background);
+    background:
+      linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(148, 163, 184, 0.026) 1px, transparent 1px),
+      var(--background);
+    background-size: 56px 56px;
     color: var(--foreground);
   }
 
@@ -188,32 +192,32 @@
 
 @layer components {
   .surface {
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.14);
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
-      #10161d;
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0)),
+      #10151b;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset;
   }
 
   .surface-muted {
-    border: 1px solid rgba(148, 163, 184, 0.1);
-    background: rgba(13, 19, 26, 0.74);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(11, 16, 22, 0.84);
   }
 
   .eyebrow {
-    color: #6ee7b7;
+    color: #8aa1b4;
     font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.11em;
     text-transform: uppercase;
   }
 
   .field-control {
     width: 100%;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    background: rgba(255, 255, 255, 0.045);
-    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(4, 8, 12, 0.34);
+    padding: 0.65rem 0.8rem;
     color: white;
     transition: border-color 160ms ease, background 160ms ease;
   }
@@ -222,5 +226,34 @@
     border-color: rgba(110, 231, 183, 0.72);
     background: rgba(255, 255, 255, 0.07);
     outline: none;
+  }
+
+  .control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    padding: 1rem 0;
+  }
+
+  .control-row:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .control-row:last-child {
+    padding-bottom: 0;
+  }
+
+  .section-kicker {
+    color: #d8e1e8;
+    font-size: 0.95rem;
+    font-weight: 650;
+  }
+
+  .quiet-note {
+    color: #7f91a3;
+    font-size: 0.82rem;
   }
 }

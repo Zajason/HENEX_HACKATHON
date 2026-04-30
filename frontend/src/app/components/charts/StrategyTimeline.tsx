@@ -1,12 +1,12 @@
 import { useState } from 'react';
+import type { DispatchWindow } from '../../data/AppDataContext';
 
-const strategies = [
-  { time: '02:00-06:00', type: 'charge', profit: 245, zscore: 2.1 },
-  { time: '09:00-13:00', type: 'discharge', profit: 890, zscore: 2.8 },
-  { time: '15:00-19:00', type: 'discharge', profit: 1240, zscore: 3.2 },
-];
+function hourFromTime(time: string) {
+  const parsed = Number(time.split(':')[0]);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
-export function StrategyTimeline() {
+export function StrategyTimeline({ windows }: { windows: DispatchWindow[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   return (
@@ -24,17 +24,16 @@ export function StrategyTimeline() {
 
       {/* Strategy Bars */}
       <div className="relative h-24 mb-6">
-        {strategies.map((strategy, index) => {
-          const [start, end] = strategy.time.split('-');
-          const startHour = parseInt(start.split(':')[0]);
-          const endHour = parseInt(end.split(':')[0]);
+        {windows.map((strategy, index) => {
+          const startHour = hourFromTime(strategy.start);
+          const endHour = hourFromTime(strategy.end);
           const left = (startHour / 24) * 100;
-          const width = ((endHour - startHour) / 24) * 100;
+          const width = (Math.max(endHour - startHour, 1) / 24) * 100;
 
           return (
             <div
-              key={index}
-              className="absolute h-16 cursor-pointer rounded-lg transition-all duration-200"
+              key={strategy.id}
+              className="absolute h-16 cursor-pointer rounded-md transition-all duration-200"
               style={{
                 left: `${left}%`,
                 width: `${width}%`,
@@ -62,7 +61,7 @@ export function StrategyTimeline() {
               {/* Tooltip */}
               {hoveredIndex === index && (
                 <div className="absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-600/60 bg-[#0b1016] p-3 text-sm shadow-xl">
-                  <div className="text-white mb-1">{strategy.time}</div>
+                  <div className="text-white mb-1">{strategy.start}-{strategy.end}</div>
                   <div className="text-emerald-200">Expected: €{strategy.profit}</div>
                   <div className="text-sky-300">Z-score: {strategy.zscore}</div>
                 </div>

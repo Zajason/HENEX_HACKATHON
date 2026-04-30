@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Battery, TrendingUp } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAppData } from '../data/AppDataContext';
 
 const previewData = [
   { hour: '0', profit: 0 },
@@ -15,17 +16,30 @@ const previewData = [
 ];
 
 export function BatteryConfig() {
-  const [config, setConfig] = useState({
-    batteries: 4,
-    capacity: 10,
-    power: 5,
-    chargeEff: 92,
-    dischargeEff: 90,
-    degradationCost: 2.5,
-    mode: 'aggressive'
-  });
+  const { assetConfig, saveAssetConfig } = useAppData();
+  const [config, setConfig] = useState(assetConfig);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const estimatedProfit = Math.round(config.batteries * config.capacity * 23.75 * (config.mode === 'aggressive' ? 1.2 : 0.9));
+
+  useEffect(() => {
+    setConfig(assetConfig);
+  }, [assetConfig]);
+
+  const updateConfig = (nextConfig: typeof config) => {
+    setConfig(nextConfig);
+    setSaveStatus('idle');
+  };
+
+  const handleSave = async () => {
+    setSaveStatus('saving');
+    try {
+      await saveAssetConfig(config);
+      setSaveStatus('saved');
+    } catch {
+      setSaveStatus('error');
+    }
+  };
 
   return (
     <div className="p-4 md:p-8">
@@ -37,7 +51,7 @@ export function BatteryConfig() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Left Side - Form */}
-        <div className="surface rounded-lg p-6">
+        <div className="surface rounded-md p-6">
           <h3 className="mb-6 flex items-center gap-2 text-white">
             <Battery className="w-5 h-5" />
             Plant parameters
@@ -49,7 +63,7 @@ export function BatteryConfig() {
               <input
                 type="number"
                 value={config.batteries}
-                onChange={(e) => setConfig({ ...config, batteries: parseInt(e.target.value) })}
+                onChange={(e) => updateConfig({ ...config, batteries: parseInt(e.target.value) || 0 })}
                 className="field-control"
               />
             </div>
@@ -59,7 +73,7 @@ export function BatteryConfig() {
               <input
                 type="number"
                 value={config.capacity}
-                onChange={(e) => setConfig({ ...config, capacity: parseFloat(e.target.value) })}
+                onChange={(e) => updateConfig({ ...config, capacity: parseFloat(e.target.value) || 0 })}
                 className="field-control"
               />
             </div>
@@ -69,7 +83,7 @@ export function BatteryConfig() {
               <input
                 type="number"
                 value={config.power}
-                onChange={(e) => setConfig({ ...config, power: parseFloat(e.target.value) })}
+                onChange={(e) => updateConfig({ ...config, power: parseFloat(e.target.value) || 0 })}
                 className="field-control"
               />
             </div>
@@ -80,7 +94,7 @@ export function BatteryConfig() {
                 <input
                   type="number"
                   value={config.chargeEff}
-                  onChange={(e) => setConfig({ ...config, chargeEff: parseFloat(e.target.value) })}
+                  onChange={(e) => updateConfig({ ...config, chargeEff: parseFloat(e.target.value) || 0 })}
                   className="field-control"
                 />
               </div>
@@ -89,7 +103,7 @@ export function BatteryConfig() {
                 <input
                   type="number"
                   value={config.dischargeEff}
-                  onChange={(e) => setConfig({ ...config, dischargeEff: parseFloat(e.target.value) })}
+                  onChange={(e) => updateConfig({ ...config, dischargeEff: parseFloat(e.target.value) || 0 })}
                   className="field-control"
                 />
               </div>
@@ -101,7 +115,7 @@ export function BatteryConfig() {
                 type="number"
                 step="0.1"
                 value={config.degradationCost}
-                onChange={(e) => setConfig({ ...config, degradationCost: parseFloat(e.target.value) })}
+                onChange={(e) => updateConfig({ ...config, degradationCost: parseFloat(e.target.value) || 0 })}
                 className="field-control"
               />
             </div>
@@ -110,8 +124,8 @@ export function BatteryConfig() {
               <label className="mb-2 block text-sm text-slate-400">Trading posture</label>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setConfig({ ...config, mode: 'conservative' })}
-                  className={`flex-1 py-3 px-4 rounded-lg transition-all ${
+                  onClick={() => updateConfig({ ...config, mode: 'conservative' })}
+                  className={`flex-1 py-3 px-4 rounded-md transition-all ${
                     config.mode === 'conservative'
                       ? 'border border-sky-300/50 bg-sky-300/15 text-sky-100'
                       : 'border border-slate-700/50 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
@@ -120,8 +134,8 @@ export function BatteryConfig() {
                   Conservative
                 </button>
                 <button
-                  onClick={() => setConfig({ ...config, mode: 'aggressive' })}
-                  className={`flex-1 py-3 px-4 rounded-lg transition-all ${
+                  onClick={() => updateConfig({ ...config, mode: 'aggressive' })}
+                  className={`flex-1 py-3 px-4 rounded-md transition-all ${
                     config.mode === 'aggressive'
                       ? 'border border-amber-300/50 bg-amber-300/15 text-amber-100'
                       : 'border border-slate-700/50 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
@@ -132,26 +146,32 @@ export function BatteryConfig() {
               </div>
             </div>
 
-            <button className="w-full rounded-lg border border-emerald-300/40 bg-emerald-300/15 px-4 py-3 text-emerald-100 transition-colors hover:bg-emerald-300/20">
-              Save fleet setup
+            <button
+              className="w-full rounded-md border border-emerald-300/40 bg-emerald-300/15 px-4 py-3 text-emerald-100 transition-colors hover:bg-emerald-300/20"
+              disabled={saveStatus === 'saving'}
+              onClick={handleSave}
+            >
+              {saveStatus === 'saving' ? 'Saving fleet setup...' : 'Save fleet setup'}
             </button>
+            {saveStatus === 'saved' && <div className="text-sm text-emerald-200">Saved to Python API and local storage.</div>}
+            {saveStatus === 'error' && <div className="text-sm text-rose-200">Start the Python API, then save again.</div>}
           </div>
         </div>
 
         {/* Right Side - Preview */}
         <div className="space-y-6">
-          <div className="surface rounded-lg p-6">
+          <div className="surface rounded-md p-6">
             <h3 className="mb-4 flex items-center gap-2 text-white">
               <TrendingUp className="w-5 h-5" />
               Dispatch preview
             </h3>
 
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
+              <div className="rounded-md border border-emerald-300/25 bg-emerald-300/10 p-4">
                 <div className="mb-1 text-sm text-emerald-200">Daily margin</div>
                 <div className="text-2xl text-white">€{estimatedProfit.toLocaleString()}</div>
               </div>
-              <div className="rounded-lg border border-sky-300/25 bg-sky-300/10 p-4">
+              <div className="rounded-md border border-sky-300/25 bg-sky-300/10 p-4">
                 <div className="mb-1 text-sm text-sky-200">Total capacity</div>
                 <div className="text-2xl text-white">{config.batteries * config.capacity} MWh</div>
               </div>
@@ -188,7 +208,7 @@ export function BatteryConfig() {
             </ResponsiveContainer>
           </div>
 
-          <div className="surface rounded-lg p-6">
+          <div className="surface rounded-md p-6">
             <h3 className="text-white mb-4">System Summary</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
