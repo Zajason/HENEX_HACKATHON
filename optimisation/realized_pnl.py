@@ -27,7 +27,7 @@ from optimisation.tier_final import (
 )
 
 
-SCHEDULE_PATH_DEFAULT = result("tier_final_schedule.csv")
+SCHEDULE_PATH_DEFAULT = result("tier_final2_schedule.csv")
 MTU_OUT_PATH = result("realized_pnl_mtu.csv")
 SUMMARY_OUT_PATH = result("realized_pnl_summary.csv")
 PLOT_OUT_PATH = plot("realized_pnl.png")
