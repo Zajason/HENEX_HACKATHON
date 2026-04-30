@@ -8,6 +8,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -21,14 +25,32 @@ from pyomo.environ import *
 # ============================================================
 
 API_CONFIG_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "battery_config.json"
+    PROJECT_ROOT / "api" / "data" / "battery_config.json"
 )
+
+
+@dataclass
+class BatteryGroupParams:
+    """One configurable battery block, with quantity already aggregated."""
+
+    name: str
+    quantity: int
+    P_nom: float
+    E_nom: float
+    eta_ch: float
+    eta_dis: float
+    SOC_min: float
+    SOC_max: float
+    E_init: float
+    c_deg: float
+    max_cycles: float
 
 
 @dataclass
 class BatteryParams:
     """Aggregated battery parameters derived from the API config."""
 
+    groups: list[BatteryGroupParams]
     P_nom: float
     E_nom: float
     dt: float
@@ -46,10 +68,10 @@ class BatteryParams:
 def load_battery_params(path: Path = API_CONFIG_PATH) -> BatteryParams:
     """Load and aggregate battery parameters from the API config JSON.
 
-    The config may contain multiple battery units. We aggregate by
-    summing (capacity × quantity) and (power × quantity) across all
-    units.  Efficiency and SOC percentages are averaged (weighted by
-    capacity×quantity).
+    Quantity within a group is aggregated into one equivalent block:
+    quantity × capacity and quantity × power. Different groups remain
+    separate in the optimiser so they keep their own efficiency,
+    degradation, and SOC bounds.
     """
     if not path.exists():
         raise FileNotFoundError(
@@ -64,47 +86,60 @@ def load_battery_params(path: Path = API_CONFIG_PATH) -> BatteryParams:
     if not batteries:
         raise ValueError("No batteries defined in config")
 
-    total_capacity = 0.0
-    total_power = 0.0
-    weighted_eta_ch = 0.0
-    weighted_eta_dis = 0.0
-    weighted_soc_min = 0.0
-    weighted_soc_max = 0.0
-    weighted_soc_init = 0.0
-    weighted_deg = 0.0
+    groups: list[BatteryGroupParams] = []
 
-    for b in batteries:
-        qty = b.get("quantity", 1)
-        cap = b.get("capacity", 10.0) * qty
-        pwr = b.get("power", 5.0) * qty
+    for i, b in enumerate(batteries):
+        qty = int(b.get("quantity", 1))
+        unit_capacity = float(b.get("capacity", 10.0))
+        unit_power = float(b.get("power", 5.0))
+        cap = unit_capacity * qty
+        pwr = unit_power * qty
 
-        total_capacity += cap
-        total_power += pwr
-        weighted_eta_ch += b.get("chargeEff", 92.0) * cap
-        weighted_eta_dis += b.get("dischargeEff", 90.0) * cap
-        weighted_soc_min += b.get("socMin", 10.0) * cap
-        weighted_soc_max += b.get("socMax", 90.0) * cap
-        weighted_soc_init += b.get("socInitial", 15.0) * cap
-        weighted_deg += b.get("degradationCost", 2.5) * cap
+        if qty <= 0 or cap <= 0 or pwr <= 0:
+            raise ValueError(f"Battery group {i + 1} must have positive quantity, capacity, and power.")
 
-    eta_ch = (weighted_eta_ch / total_capacity) / 100.0   # percent → fraction
-    eta_dis = (weighted_eta_dis / total_capacity) / 100.0
-    soc_min_pct = weighted_soc_min / total_capacity / 100.0
-    soc_max_pct = weighted_soc_max / total_capacity / 100.0
-    soc_init_pct = weighted_soc_init / total_capacity / 100.0
-    c_deg = weighted_deg / total_capacity
+        soc_min_pct = float(b.get("socMin", 10.0)) / 100.0
+        soc_max_pct = float(b.get("socMax", 90.0)) / 100.0
+        soc_init_pct = float(b.get("socInitial", 15.0)) / 100.0
+        if soc_min_pct > soc_max_pct:
+            raise ValueError(f"Battery group {i + 1} has SOC min above SOC max.")
+        if not soc_min_pct <= soc_init_pct <= soc_max_pct:
+            raise ValueError(f"Battery group {i + 1} has initial SOC outside min/max bounds.")
+
+        groups.append(
+            BatteryGroupParams(
+                name=str(b.get("name") or f"Battery group {i + 1}"),
+                quantity=qty,
+                P_nom=pwr,
+                E_nom=cap,
+                eta_ch=float(b.get("chargeEff", 92.0)) / 100.0,
+                eta_dis=float(b.get("dischargeEff", 90.0)) / 100.0,
+                SOC_min=soc_min_pct * cap,
+                SOC_max=soc_max_pct * cap,
+                E_init=soc_init_pct * cap,
+                c_deg=float(b.get("degradationCost", 2.5)),
+                max_cycles=2.0,
+            )
+        )
+
+    total_capacity = sum(group.E_nom for group in groups)
+    total_power = sum(group.P_nom for group in groups)
+    eta_ch = sum(group.eta_ch * group.E_nom for group in groups) / total_capacity
+    eta_dis = sum(group.eta_dis * group.E_nom for group in groups) / total_capacity
+    c_deg = sum(group.c_deg * group.E_nom for group in groups) / total_capacity
 
     dt = 0.25  # 15 minutes — fixed by HEnEx MTU resolution
 
     return BatteryParams(
+        groups=groups,
         P_nom=total_power,
         E_nom=total_capacity,
         dt=dt,
         eta_ch=eta_ch,
         eta_dis=eta_dis,
-        SOC_min=soc_min_pct * total_capacity,
-        SOC_max=soc_max_pct * total_capacity,
-        E_init=soc_init_pct * total_capacity,
+        SOC_min=sum(group.SOC_min for group in groups),
+        SOC_max=sum(group.SOC_max for group in groups),
+        E_init=sum(group.E_init for group in groups),
         c_deg=c_deg,
         max_cycles=2.0,
         grid_import_max=total_power,
@@ -127,6 +162,16 @@ def print_battery_params(bp: BatteryParams) -> None:
     print(f"  grid_import    = {bp.grid_import_max:.2f} MW")
     print(f"  grid_export    = {bp.grid_export_max:.2f} MW")
     print(f"  Δt             = {bp.dt} h (15 min)")
+    print("  Groups:")
+    for i, group in enumerate(bp.groups):
+        print(
+            f"    [{i}] {group.name}: qty={group.quantity}, "
+            f"{group.P_nom:.2f} MW / {group.E_nom:.2f} MWh, "
+            f"SOC {group.SOC_min:.2f}-{group.SOC_max:.2f} MWh, "
+            f"E_init={group.E_init:.2f} MWh, "
+            f"η={group.eta_ch:.3f}/{group.eta_dis:.3f}, "
+            f"c_deg={group.c_deg:.2f}"
+        )
     print()
 
 
@@ -321,13 +366,16 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
     S, T_len = scenarios.shape
     T = range(T_len)
     K = range(S)
+    G = range(len(bp.groups))
 
     model = ConcreteModel()
 
-    model.P_ch = Var(T, domain=NonNegativeReals)
-    model.P_dis = Var(T, domain=NonNegativeReals)
-    model.E = Var(T, domain=NonNegativeReals)
+    model.P_ch = Var(G, T, domain=NonNegativeReals)
+    model.P_dis = Var(G, T, domain=NonNegativeReals)
+    model.E = Var(G, T, domain=NonNegativeReals)
 
+    # One fleet-facing market mode per interval; groups can choose how much
+    # capacity to contribute, but the fleet cannot charge and discharge at once.
     model.u_ch = Var(T, domain=Binary)
     model.u_dis = Var(T, domain=Binary)
 
@@ -344,9 +392,14 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
 
     def scenario_profit_rule(m, k):
         return m.profit[k] == sum(
-            scenarios[k, t] * (m.P_dis[t] - m.P_ch[t]) * bp.dt
-            - bp.c_deg * (m.P_ch[t] + m.P_dis[t]) * bp.dt
-            - structural_charge_penalty[t] * m.P_ch[t] * bp.dt
+            scenarios[k, t]
+            * sum(m.P_dis[g, t] - m.P_ch[g, t] for g in G)
+            * bp.dt
+            - sum(
+                bp.groups[g].c_deg * (m.P_ch[g, t] + m.P_dis[g, t]) * bp.dt
+                for g in G
+            )
+            - structural_charge_penalty[t] * sum(m.P_ch[g, t] for g in G) * bp.dt
             for t in T
         )
 
@@ -370,13 +423,15 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
     )
 
     model.charge_limit = Constraint(
+        G,
         T,
-        rule=lambda m, t: m.P_ch[t] <= bp.P_nom * m.u_ch[t],
+        rule=lambda m, g, t: m.P_ch[g, t] <= bp.groups[g].P_nom * m.u_ch[t],
     )
 
     model.discharge_limit = Constraint(
+        G,
         T,
-        rule=lambda m, t: m.P_dis[t] <= bp.P_nom * m.u_dis[t],
+        rule=lambda m, g, t: m.P_dis[g, t] <= bp.groups[g].P_nom * m.u_dis[t],
     )
 
     model.no_simultaneous = Constraint(
@@ -384,47 +439,54 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
         rule=lambda m, t: m.u_ch[t] + m.u_dis[t] <= 1,
     )
 
-    def soc_rule(m, t):
+    def soc_rule(m, g, t):
+        group = bp.groups[g]
         if t == 0:
-            return m.E[t] == (
-                bp.E_init
-                + bp.eta_ch * m.P_ch[t] * bp.dt
-                - (m.P_dis[t] / bp.eta_dis) * bp.dt
+            return m.E[g, t] == (
+                group.E_init
+                + group.eta_ch * m.P_ch[g, t] * bp.dt
+                - (m.P_dis[g, t] / group.eta_dis) * bp.dt
             )
 
-        return m.E[t] == (
-            m.E[t - 1]
-            + bp.eta_ch * m.P_ch[t] * bp.dt
-            - (m.P_dis[t] / bp.eta_dis) * bp.dt
+        return m.E[g, t] == (
+            m.E[g, t - 1]
+            + group.eta_ch * m.P_ch[g, t] * bp.dt
+            - (m.P_dis[g, t] / group.eta_dis) * bp.dt
         )
 
-    model.soc = Constraint(T, rule=soc_rule)
+    model.soc = Constraint(G, T, rule=soc_rule)
 
     model.soc_min = Constraint(
+        G,
         T,
-        rule=lambda m, t: m.E[t] >= bp.SOC_min,
+        rule=lambda m, g, t: m.E[g, t] >= bp.groups[g].SOC_min,
     )
 
     model.soc_max = Constraint(
+        G,
         T,
-        rule=lambda m, t: m.E[t] <= bp.SOC_max,
+        rule=lambda m, g, t: m.E[g, t] <= bp.groups[g].SOC_max,
     )
 
-    model.final_soc = Constraint(expr=model.E[T_len - 1] == bp.E_init)
+    model.final_soc = Constraint(
+        G,
+        rule=lambda m, g: m.E[g, T_len - 1] == bp.groups[g].E_init,
+    )
 
     model.cycle_limit = Constraint(
-        expr=sum(model.P_dis[t] * bp.dt for t in T)
-        <= bp.max_cycles * bp.E_nom
+        G,
+        rule=lambda m, g: sum(m.P_dis[g, t] * bp.dt for t in T)
+        <= bp.groups[g].max_cycles * bp.groups[g].E_nom,
     )
 
     model.grid_import = Constraint(
         T,
-        rule=lambda m, t: m.P_ch[t] <= bp.grid_import_max,
+        rule=lambda m, t: sum(m.P_ch[g, t] for g in G) <= bp.grid_import_max,
     )
 
     model.grid_export = Constraint(
         T,
-        rule=lambda m, t: m.P_dis[t] <= bp.grid_export_max,
+        rule=lambda m, t: sum(m.P_dis[g, t] for g in G) <= bp.grid_export_max,
     )
 
     solver = SolverFactory("appsi_highs")
@@ -434,9 +496,25 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
         raise RuntimeError(result)
 
     out = df.copy()
-    out["charge_mw"] = [value(model.P_ch[t]) for t in T]
-    out["discharge_mw"] = [value(model.P_dis[t]) for t in T]
-    out["soc_mwh"] = [value(model.E[t]) for t in T]
+    for g, group in enumerate(bp.groups):
+        prefix = f"group_{g + 1}"
+        out[f"{prefix}_name"] = group.name
+        out[f"{prefix}_charge_mw"] = [value(model.P_ch[g, t]) for t in T]
+        out[f"{prefix}_discharge_mw"] = [value(model.P_dis[g, t]) for t in T]
+        out[f"{prefix}_soc_mwh"] = [value(model.E[g, t]) for t in T]
+
+    out["charge_mw"] = [
+        sum(value(model.P_ch[g, t]) for g in G)
+        for t in T
+    ]
+    out["discharge_mw"] = [
+        sum(value(model.P_dis[g, t]) for g in G)
+        for t in T
+    ]
+    out["soc_mwh"] = [
+        sum(value(model.E[g, t]) for g in G)
+        for t in T
+    ]
     out["net_power_mw"] = out["discharge_mw"] - out["charge_mw"]
 
     scenario_profits = np.array([value(model.profit[k]) for k in K])
@@ -449,61 +527,113 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
 # ============================================================
 
 def evaluate_schedule_on_prices(schedule, prices, bp: BatteryParams):
-    return (
+    market_revenue = (
         prices
         * (schedule["discharge_mw"].to_numpy() - schedule["charge_mw"].to_numpy())
         * bp.dt
-        - bp.c_deg
-        * (schedule["charge_mw"].to_numpy() + schedule["discharge_mw"].to_numpy())
-        * bp.dt
     ).sum()
+
+    group_cost = 0.0
+    has_group_columns = all(
+        f"group_{g + 1}_charge_mw" in schedule.columns
+        and f"group_{g + 1}_discharge_mw" in schedule.columns
+        for g in range(len(bp.groups))
+    )
+    if has_group_columns:
+        for g, group in enumerate(bp.groups):
+            prefix = f"group_{g + 1}"
+            group_cost += (
+                group.c_deg
+                * (
+                    schedule[f"{prefix}_charge_mw"].to_numpy()
+                    + schedule[f"{prefix}_discharge_mw"].to_numpy()
+                )
+                * bp.dt
+            ).sum()
+    else:
+        group_cost = (
+            bp.c_deg
+            * (schedule["charge_mw"].to_numpy() + schedule["discharge_mw"].to_numpy())
+            * bp.dt
+        ).sum()
+
+    return market_revenue - group_cost
 
 
 def naive_rank_strategy(df, bp: BatteryParams):
     out = df.copy()
+    G = range(len(bp.groups))
 
     out["charge_mw"] = 0.0
     out["discharge_mw"] = 0.0
     out["soc_mwh"] = bp.E_init
+    for g, group in enumerate(bp.groups):
+        prefix = f"group_{g + 1}"
+        out[f"{prefix}_name"] = group.name
+        out[f"{prefix}_charge_mw"] = 0.0
+        out[f"{prefix}_discharge_mw"] = 0.0
+        out[f"{prefix}_soc_mwh"] = group.E_init
 
     low = out["p50_eur_mwh"].quantile(0.25)
     high = out["p50_eur_mwh"].quantile(0.75)
 
-    soc = bp.E_init
-    discharged_today = 0.0
+    soc = {g: bp.groups[g].E_init for g in G}
+    discharged_today = {g: 0.0 for g in G}
 
     for i, row in out.iterrows():
         price = row["p50_eur_mwh"]
 
         if price <= low:
-            max_add = bp.SOC_max - soc
-            p_ch = min(
-                bp.P_nom,
-                bp.grid_import_max,
-                max_add / (bp.eta_ch * bp.dt),
-            )
-            p_ch = max(0, p_ch)
+            remaining_grid = bp.grid_import_max
+            # Lower degradation and higher charge efficiency groups get filled first.
+            order = sorted(G, key=lambda g: (bp.groups[g].c_deg, -bp.groups[g].eta_ch))
+            for g in order:
+                group = bp.groups[g]
+                max_add = group.SOC_max - soc[g]
+                p_ch = min(
+                    group.P_nom,
+                    remaining_grid,
+                    max_add / (group.eta_ch * bp.dt),
+                )
+                p_ch = max(0, p_ch)
+                prefix = f"group_{g + 1}"
+                out.loc[i, f"{prefix}_charge_mw"] = p_ch
+                soc[g] += group.eta_ch * p_ch * bp.dt
+                remaining_grid -= p_ch
+                if remaining_grid <= 1e-9:
+                    break
 
-            out.loc[i, "charge_mw"] = p_ch
-            soc += bp.eta_ch * p_ch * bp.dt
+        elif price >= high:
+            remaining_grid = bp.grid_export_max
+            # Lower degradation and higher discharge efficiency groups get dispatched first.
+            order = sorted(G, key=lambda g: (bp.groups[g].c_deg, -bp.groups[g].eta_dis))
+            for g in order:
+                group = bp.groups[g]
+                if discharged_today[g] >= group.max_cycles * group.E_nom:
+                    continue
+                max_remove = soc[g] - group.SOC_min
+                p_dis = min(
+                    group.P_nom,
+                    remaining_grid,
+                    max_remove * group.eta_dis / bp.dt,
+                )
 
-        elif price >= high and discharged_today < bp.max_cycles * bp.E_nom:
-            max_remove = soc - bp.SOC_min
-            p_dis = min(
-                bp.P_nom,
-                bp.grid_export_max,
-                max_remove * bp.eta_dis / bp.dt,
-            )
+                remaining_cycle = group.max_cycles * group.E_nom - discharged_today[g]
+                p_dis = min(p_dis, remaining_cycle / bp.dt)
+                p_dis = max(0, p_dis)
+                prefix = f"group_{g + 1}"
+                out.loc[i, f"{prefix}_discharge_mw"] = p_dis
+                soc[g] -= p_dis * bp.dt / group.eta_dis
+                discharged_today[g] += p_dis * bp.dt
+                remaining_grid -= p_dis
+                if remaining_grid <= 1e-9:
+                    break
 
-            remaining = bp.max_cycles * bp.E_nom - discharged_today
-            p_dis = min(p_dis, remaining / bp.dt)
-            p_dis = max(0, p_dis)
-
-            out.loc[i, "discharge_mw"] = p_dis
-            soc -= p_dis * bp.dt / bp.eta_dis
-            discharged_today += p_dis * bp.dt
-
-        out.loc[i, "soc_mwh"] = soc
+        out.loc[i, "charge_mw"] = sum(out.loc[i, f"group_{g + 1}_charge_mw"] for g in G)
+        out.loc[i, "discharge_mw"] = sum(out.loc[i, f"group_{g + 1}_discharge_mw"] for g in G)
+        for g in G:
+            out.loc[i, f"group_{g + 1}_soc_mwh"] = soc[g]
+        out.loc[i, "soc_mwh"] = sum(soc.values())
 
     out["net_power_mw"] = out["discharge_mw"] - out["charge_mw"]
 
@@ -561,6 +691,71 @@ def calculate_metrics(schedule, scenarios, bp: BatteryParams, naive_schedule=Non
         })
 
     return metrics, profits
+
+
+def calculate_group_metrics(schedule, scenarios, bp: BatteryParams):
+    p50 = schedule["p50_eur_mwh"].to_numpy()
+    rows = []
+
+    for g, group in enumerate(bp.groups):
+        prefix = f"group_{g + 1}"
+        charge = schedule[f"{prefix}_charge_mw"].to_numpy()
+        discharge = schedule[f"{prefix}_discharge_mw"].to_numpy()
+        soc = schedule[f"{prefix}_soc_mwh"].to_numpy()
+        throughput = ((charge + discharge) * bp.dt).sum()
+        market_profit = (p50 * (discharge - charge) * bp.dt).sum()
+        degradation_cost = (group.c_deg * (charge + discharge) * bp.dt).sum()
+        rows.append(
+            {
+                "group": g + 1,
+                "name": group.name,
+                "quantity": group.quantity,
+                "power_mw": group.P_nom,
+                "energy_mwh": group.E_nom,
+                "charge_mwh": (charge * bp.dt).sum(),
+                "discharge_mwh": (discharge * bp.dt).sum(),
+                "throughput_mwh": throughput,
+                "equivalent_cycles": throughput / (2 * group.E_nom),
+                "active_intervals": int(((charge > 1e-6) | (discharge > 1e-6)).sum()),
+                "charge_intervals": int((charge > 1e-6).sum()),
+                "discharge_intervals": int((discharge > 1e-6).sum()),
+                "min_soc_mwh": soc.min(),
+                "max_soc_mwh": soc.max(),
+                "min_soc_pct": soc.min() / group.E_nom * 100,
+                "max_soc_pct": soc.max() / group.E_nom * 100,
+                "market_profit_p50_eur": market_profit,
+                "degradation_cost_eur": degradation_cost,
+                "net_profit_p50_eur": market_profit - degradation_cost,
+            }
+        )
+
+    return rows
+
+
+def print_group_metrics(group_metrics):
+    print("\n=== Battery Group Dispatch Metrics ===")
+    for row in group_metrics:
+        print(
+            f"  Group {row['group']} — {row['name']} "
+            f"(qty={row['quantity']}, {row['power_mw']:.2f} MW / {row['energy_mwh']:.2f} MWh)"
+        )
+        print(
+            f"    charge={row['charge_mwh']:.2f} MWh, "
+            f"discharge={row['discharge_mwh']:.2f} MWh, "
+            f"throughput={row['throughput_mwh']:.2f} MWh, "
+            f"cycles={row['equivalent_cycles']:.3f}"
+        )
+        print(
+            f"    active={row['active_intervals']} intervals "
+            f"(charge={row['charge_intervals']}, discharge={row['discharge_intervals']}), "
+            f"SoC={row['min_soc_mwh']:.2f}-{row['max_soc_mwh']:.2f} MWh "
+            f"({row['min_soc_pct']:.1f}-{row['max_soc_pct']:.1f}%)"
+        )
+        print(
+            f"    P50 market profit=€{row['market_profit_p50_eur']:,.2f}, "
+            f"degradation=€{row['degradation_cost_eur']:,.2f}, "
+            f"net=€{row['net_profit_p50_eur']:,.2f}"
+        )
 
 
 # ============================================================
@@ -669,6 +864,7 @@ if __name__ == "__main__":
         bp,
         naive_schedule=naive,
     )
+    group_metrics = calculate_group_metrics(schedule, scenarios, bp)
 
     print("\n=== Tier Final Metrics (API battery config) ===")
     for k, v in metrics.items():
@@ -676,6 +872,7 @@ if __name__ == "__main__":
             print(f"  {k}: {v:,.4f}")
         else:
             print(f"  {k}: {v}")
+    print_group_metrics(group_metrics)
 
     # Save results
     from optimisation._paths import result
