@@ -13,8 +13,21 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { AlertTriangle, CheckCircle2, Download, RefreshCw, Wallet } from 'lucide-react';
-import { fetchFromHenex, loadRealizedPnl, type RealizedPnlMtuRow, type RealizedPnlResponse } from '../data/realizedPnlApi';
+import { AlertTriangle, CalendarDays, CheckCircle2, Download, Play, RefreshCw, Wallet } from 'lucide-react';
+import {
+  fetchFromHenex,
+  loadAvailableDates,
+  loadRealizedPnl,
+  runOptimiserForDate,
+  waitForOptimiser,
+  type RealizedPnlMtuRow,
+  type RealizedPnlResponse,
+} from '../data/realizedPnlApi';
+
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const eur = (n: number) =>
   new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -37,12 +50,103 @@ function timeLabel(iso: string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function DateControls(props: {
+  selectedDate: string;
+  onDateChange: (d: string) => void;
+  onRun: () => void;
+  onFetch: () => void;
+  runBusy: boolean;
+  henexBusy: boolean;
+  runStatus: string | null;
+  availableDates: string[];
+}) {
+  const { selectedDate, onDateChange, onRun, onFetch, runBusy, henexBusy, runStatus, availableDates } = props;
+  const busy = runBusy || henexBusy;
+  const minDate = availableDates.length ? availableDates[availableDates.length - 1] : '2025-01-01';
+  const maxDate = availableDates.length ? availableDates[0] : todayIso();
+  const isDateAvailable = !availableDates.length || availableDates.includes(selectedDate);
+
+  return (
+    <div className="surface-muted mt-4 rounded-md p-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <CalendarDays className="h-3 w-3" />
+            Delivery day
+          </span>
+          <select
+            value={selectedDate}
+            onChange={(e) => onDateChange(e.target.value)}
+            disabled={busy || !availableDates.length}
+            className="rounded border border-slate-700/60 bg-[#0F1720] px-2 py-1.5 text-sm text-slate-200 focus:border-[#9ed9c5]/60 focus:outline-none disabled:opacity-50"
+          >
+            {!availableDates.includes(selectedDate) && (
+              <option value={selectedDate}>{selectedDate} (not on HEnEx)</option>
+            )}
+            {availableDates.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Or pick any
+          </span>
+          <input
+            type="date"
+            value={selectedDate}
+            min={minDate}
+            max={maxDate}
+            onChange={(e) => onDateChange(e.target.value)}
+            disabled={busy}
+            className="rounded border border-slate-700/60 bg-[#0F1720] px-2 py-1.5 text-sm text-slate-200 focus:border-[#9ed9c5]/60 focus:outline-none disabled:opacity-50"
+          />
+        </label>
+        <button
+          onClick={onRun}
+          disabled={busy || !selectedDate || !isDateAvailable}
+          title={isDateAvailable ? '' : 'HEnEx has not published this date'}
+          className="inline-flex items-center gap-2 rounded border border-[#9ed9c5]/40 bg-[#9ed9c5]/10 px-3 py-1.5 text-sm text-[#bcebdc] hover:bg-[#9ed9c5]/15 disabled:opacity-50"
+        >
+          <Play className="h-3.5 w-3.5" />
+          {runBusy ? 'Running…' : 'Run optimiser + fetch HEnEx'}
+        </button>
+        <button
+          onClick={onFetch}
+          disabled={busy || !selectedDate || !isDateAvailable}
+          className="inline-flex items-center gap-2 rounded border border-slate-700/60 bg-[#141c24] px-3 py-1.5 text-sm text-slate-200 hover:bg-[#1a242e] disabled:opacity-50"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {henexBusy ? 'Fetching…' : 'Fetch HEnEx only'}
+        </button>
+      </div>
+      <div className="mt-3 text-xs text-slate-500">
+        {availableDates.length
+          ? `HEnEx available: ${minDate} → ${maxDate} (${availableDates.length} days). Older dates require ENTSO-E API.`
+          : 'Loading available HEnEx dates…'}
+      </div>
+      {runStatus && (
+        <div className="mt-1 text-xs text-slate-400">{runStatus}</div>
+      )}
+      {!isDateAvailable && (
+        <div className="mt-1 text-xs text-amber-300">
+          Selected date is outside HEnEx public listing — fetch will fail.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RealizedPnL() {
   const [data, setData] = useState<RealizedPnlResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [henexBusy, setHenexBusy] = useState(false);
   const [henexInfo, setHenexInfo] = useState<{ source: string; date: string } | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(todayIso());
+  const [runStatus, setRunStatus] = useState<string | null>(null);
+  const [runBusy, setRunBusy] = useState(false);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
 
   const refresh = async () => {
     setLoading(true);
@@ -71,9 +175,42 @@ export function RealizedPnL() {
     }
   };
 
+  const runForDate = async (deliveryDay: string) => {
+    setRunBusy(true);
+    setError(null);
+    setRunStatus(`Generating forecast and running optimiser for ${deliveryDay}…`);
+    try {
+      await runOptimiserForDate(deliveryDay);
+      await waitForOptimiser();
+      setRunStatus(`Fetching HEnEx DAM clearing for ${deliveryDay}…`);
+      const r = await fetchFromHenex(deliveryDay);
+      setHenexInfo({ source: r.source_url, date: r.delivery_day });
+      await refresh();
+      setRunStatus(`Done — evaluation complete for ${deliveryDay}`);
+    } catch (e) {
+      setError((e as Error).message);
+      setRunStatus(null);
+    } finally {
+      setRunBusy(false);
+    }
+  };
+
   useEffect(() => {
     refresh();
+    loadAvailableDates()
+      .then((dates) => {
+        setAvailableDates(dates);
+        if (dates.length && !data?.summary?.delivery_day) {
+          setSelectedDate(dates[0]);
+        }
+      })
+      .catch(() => setAvailableDates([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (data?.summary?.delivery_day) setSelectedDate(data.summary.delivery_day);
+  }, [data?.summary?.delivery_day]);
 
   const chartData = useMemo(() => {
     if (!data?.mtu) return [];
@@ -121,25 +258,22 @@ export function RealizedPnL() {
             {data?.message ??
               'No realized PnL evaluation found yet. After HEnEx publishes the actual DAM prices around 15:00 D-1, run optimisation/realized_pnl.py to evaluate the tier_final schedule against them.'}
           </p>
-          <pre className="mt-4 overflow-x-auto rounded border border-slate-700/40 bg-black/30 p-3 text-xs text-slate-300">
-{`python -m optimisation.realized_pnl --henex YYYY-MM-DD`}
-          </pre>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => fetchHenex()}
-              disabled={henexBusy}
-              className="inline-flex items-center gap-2 rounded border border-[#9ed9c5]/40 bg-[#9ed9c5]/10 px-3 py-1.5 text-sm text-[#bcebdc] hover:bg-[#9ed9c5]/15 disabled:opacity-50"
-            >
-              <Download className="h-3.5 w-3.5" />
-              {henexBusy ? 'Fetching from HEnEx…' : 'Fetch DAM from HEnEx (today)'}
-            </button>
-            <button
-              onClick={refresh}
-              className="inline-flex items-center gap-2 rounded border border-slate-700/60 bg-[#141c24] px-3 py-1.5 text-sm text-slate-200 hover:bg-[#1a242e]"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Check again
-            </button>
-          </div>
+          <DateControls
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            onRun={() => runForDate(selectedDate)}
+            onFetch={() => fetchHenex(selectedDate)}
+            runBusy={runBusy}
+            henexBusy={henexBusy}
+            runStatus={runStatus}
+            availableDates={availableDates}
+          />
+          <button
+            onClick={refresh}
+            className="mt-3 inline-flex items-center gap-2 rounded border border-slate-700/60 bg-[#141c24] px-3 py-1.5 text-sm text-slate-200 hover:bg-[#1a242e]"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Check again
+          </button>
         </div>
       </div>
     );
@@ -189,8 +323,18 @@ export function RealizedPnL() {
           </button>
         </div>
       </div>
+      <DateControls
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        onRun={() => runForDate(selectedDate)}
+        onFetch={() => fetchHenex(selectedDate)}
+        runBusy={runBusy}
+        henexBusy={henexBusy}
+        runStatus={runStatus}
+        availableDates={availableDates}
+      />
       {henexInfo && (
-        <div className="mb-6 rounded border border-[#9ed9c5]/30 bg-[#9ed9c5]/5 px-3 py-2 text-xs text-slate-300">
+        <div className="mt-3 mb-6 rounded border border-[#9ed9c5]/30 bg-[#9ed9c5]/5 px-3 py-2 text-xs text-slate-300">
           Loaded HEnEx DAM for <span className="font-semibold text-white">{henexInfo.date}</span> ·{' '}
           <a href={henexInfo.source} target="_blank" rel="noreferrer" className="text-[#bcebdc] underline-offset-2 hover:underline">
             source XLSX
@@ -240,7 +384,7 @@ export function RealizedPnL() {
         <section className="surface rounded-md p-5">
           <div className="mb-3">
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Prices</div>
-            <h2 className="text-base font-semibold text-white">Forecast P50 vs actual DAM clearing</h2>
+            <h2 className="text-base font-semibold text-white">Trained forecast band vs actual DAM clearing</h2>
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={chartData}>
@@ -248,7 +392,9 @@ export function RealizedPnL() {
               <XAxis dataKey="time" stroke="#475569" tick={{ fill: '#94A3B8', fontSize: 11 }} interval={11} />
               <YAxis stroke="#475569" tick={{ fill: '#94A3B8', fontSize: 11 }} width={40} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `${num(v, 1)} €/MWh`} />
+              <Line type="monotone" dataKey="p10_eur_mwh" stroke="#64748B" strokeWidth={1} strokeDasharray="2 5" dot={false} name="Forecast P10" connectNulls />
               <Line type="monotone" dataKey="p50_eur_mwh" stroke="#9ed9c5" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Forecast P50" />
+              <Line type="monotone" dataKey="p90_eur_mwh" stroke="#64748B" strokeWidth={1} strokeDasharray="2 5" dot={false} name="Forecast P90" connectNulls />
               <Line type="monotone" dataKey="actual_price_eur_mwh" stroke="#6EE7B7" strokeWidth={2} dot={false} name="Actual DAM" />
             </LineChart>
           </ResponsiveContainer>
@@ -328,7 +474,7 @@ export function RealizedPnL() {
             <thead className="sticky top-0 bg-[#0F1720] text-slate-500 uppercase tracking-[0.1em]">
               <tr>
                 <th className="px-3 py-2">MTU</th>
-                <th className="px-3 py-2 text-right">Forecast</th>
+                <th className="px-3 py-2 text-right">Forecast P50</th>
                 <th className="px-3 py-2 text-right">Actual</th>
                 <th className="px-3 py-2 text-right">Charge MW</th>
                 <th className="px-3 py-2 text-right">Discharge MW</th>
@@ -352,7 +498,14 @@ export function RealizedPnL() {
                 return (
                   <tr key={row.timestamp} className="border-t border-slate-700/30 hover:bg-white/[0.02]">
                     <td className="px-3 py-1.5 font-mono text-slate-300">{timeLabel(row.timestamp)}</td>
-                    <td className="px-3 py-1.5 text-right text-slate-400">{num(row.p50_eur_mwh, 1)}</td>
+                    <td className="px-3 py-1.5 text-right text-slate-400">
+                      {num(row.p50_eur_mwh, 1)}
+                      {Number.isFinite(row.p10_eur_mwh) && Number.isFinite(row.p90_eur_mwh) && (
+                        <div className="text-[0.62rem] text-slate-600">
+                          {num(row.p10_eur_mwh as number, 0)}-{num(row.p90_eur_mwh as number, 0)}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-1.5 text-right text-slate-200">{num(row.actual_price_eur_mwh, 1)}</td>
                     <td className="px-3 py-1.5 text-right">{row.charge_mw > 1e-6 ? num(row.charge_mw, 2) : '·'}</td>
                     <td className="px-3 py-1.5 text-right">{row.discharge_mw > 1e-6 ? num(row.discharge_mw, 2) : '·'}</td>

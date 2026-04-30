@@ -27,7 +27,7 @@ from optimisation.tier_final import (
 )
 
 
-SCHEDULE_PATH_DEFAULT = result("tier_final2_schedule.csv")
+SCHEDULE_PATH_DEFAULT = result("tier_final_schedule.csv")
 MTU_OUT_PATH = result("realized_pnl_mtu.csv")
 SUMMARY_OUT_PATH = result("realized_pnl_summary.csv")
 PLOT_OUT_PATH = plot("realized_pnl.png")
@@ -114,7 +114,16 @@ def evaluate(
     flag_import = p_ch > bp.grid_import_max + eps
     flag_export = p_dis > bp.grid_export_max + eps
 
-    out = merged[["timestamp", "p50_eur_mwh", "charge_mw", "discharge_mw"]].copy()
+    keep_cols = [
+        "timestamp",
+        "p50_eur_mwh",
+        "charge_mw",
+        "discharge_mw",
+    ]
+    for col in ["p10_eur_mwh", "p90_eur_mwh"]:
+        if col in merged.columns:
+            keep_cols.append(col)
+    out = merged[keep_cols].copy()
     out["actual_price_eur_mwh"] = price
     out["price_error_eur_mwh"] = price - forecast
     out["charge_cost_eur"] = charge_cost

@@ -27,6 +27,11 @@ from pyomo.environ import *
 API_CONFIG_PATH = (
     PROJECT_ROOT / "api" / "data" / "battery_config.json"
 )
+PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
+WALKFORWARD_FORECAST_CANDIDATES = [
+    PROCESSED_DATA_DIR / "forecast_walkforward_v1_with_weather_calibrated.csv",
+    PROCESSED_DATA_DIR / "forecast_walkforward_v1_with_weather.csv",
+]
 
 
 @dataclass
@@ -206,16 +211,64 @@ def normalize(s):
 # Load + create Greek structural features
 # ============================================================
 
-def load_forecast(path=None, bp: BatteryParams | None = None):
-    if path is None:
-        from optimisation._paths import synthetic
-        path = synthetic("synthetic_forecast_day.csv")
-    df = pd.read_csv(path, parse_dates=["timestamp"])
+def _load_real_forecast_for_date(target_date: str) -> pd.DataFrame | None:
+    """Load trained forecast output for a delivery day if it exists locally."""
+    target = pd.to_datetime(target_date).date()
+    daily_candidates = [
+        PROCESSED_DATA_DIR / f"{target_date}_forecast.csv",
+        PROCESSED_DATA_DIR / f"{target_date}_forecast_vs_realized.csv",
+    ]
+
+    for path in daily_candidates:
+        if not path.exists():
+            continue
+        df = pd.read_csv(path, parse_dates=["timestamp"])
+        df = df[pd.to_datetime(df["timestamp"]).dt.date == target].copy()
+        if not df.empty:
+            print(f"Using trained forecast file: {path}")
+            return df
+
+    for path in WALKFORWARD_FORECAST_CANDIDATES:
+        if not path.exists():
+            continue
+        df = pd.read_csv(path, parse_dates=["timestamp"])
+        df = df[pd.to_datetime(df["timestamp"]).dt.date == target].copy()
+        if not df.empty:
+            print(f"Using walk-forward trained forecast file: {path}")
+            return df
+
+    return None
+
+
+def load_forecast(path=None, bp: BatteryParams | None = None, target_date: str | None = None):
+    """Load a 96-MTU price forecast.
+
+    If `target_date` (YYYY-MM-DD) is provided, prefer trained forecast outputs
+    already written by the forecast layer. Synthetic forecasts are a last-resort
+    fallback only for demos with no real forecast file.
+    """
+    if target_date is not None:
+        df = _load_real_forecast_for_date(target_date)
+        if df is None:
+            from optimisation.forecast_dataset_sim import generate_forecast_day
+            # Seed derived from the date so each day has a different but reproducible draw.
+            date_obj = pd.to_datetime(target_date).date()
+            seed = int(date_obj.strftime("%Y%m%d")) % (2**31 - 1)
+            print(
+                f"WARNING: no trained forecast file found for {target_date}; "
+                "falling back to synthetic demo forecast."
+            )
+            df = generate_forecast_day(date=target_date, seed=seed)
+    else:
+        if path is None:
+            from optimisation._paths import synthetic
+            path = synthetic("synthetic_forecast_day.csv")
+        df = pd.read_csv(path, parse_dates=["timestamp"])
+
     df = df.sort_values("timestamp").reset_index(drop=True)
 
     required = {"timestamp", "p10_eur_mwh", "p50_eur_mwh", "p90_eur_mwh"}
     missing = required - set(df.columns)
-
     if missing:
         raise ValueError(f"Missing columns: {missing}")
 
@@ -520,6 +573,33 @@ def optimize_tier_final(df, scenarios, bp: BatteryParams):
     scenario_profits = np.array([value(model.profit[k]) for k in K])
 
     return out, scenario_profits
+
+
+def optimize_tier_final_lp_fallback(df: pd.DataFrame, bp: BatteryParams):
+    """Dependency-light fallback when no MILP solver is installed.
+
+    The API/frontend path should still be able to produce a real forecast-based
+    schedule. This uses the SciPy HiGHS LP bridge with aggregated battery
+    parameters and preserves the same output CSV contract.
+    """
+    from optimisation.forecast_dispatch import BatteryConfig, optimize_forecast_dispatch
+
+    cfg = BatteryConfig(
+        power_mw=bp.P_nom,
+        energy_mwh=bp.E_nom,
+        eta_ch=bp.eta_ch,
+        eta_dis=bp.eta_dis,
+        soc_min_frac=bp.SOC_min / bp.E_nom,
+        soc_max_frac=bp.SOC_max / bp.E_nom,
+        soc_init_frac=bp.E_init / bp.E_nom,
+        degradation_eur_mwh=bp.c_deg,
+        max_cycles=bp.max_cycles,
+        grid_import_mw=bp.grid_import_max,
+        grid_export_mw=bp.grid_export_max,
+        risk_lambda=0.35,
+    )
+    schedule, metrics = optimize_forecast_dispatch(df, config=cfg)
+    return schedule, metrics
 
 
 # ============================================================
@@ -836,12 +916,22 @@ def plot_tier_final_results(schedule, scenarios, profits, bp: BatteryParams):
 # ============================================================
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Tier Final optimiser")
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="Delivery day (YYYY-MM-DD). If given, generates a fresh synthetic forecast for that day.",
+    )
+    args = parser.parse_args()
+
     # Load battery parameters from API config
     bp = load_battery_params()
     print_battery_params(bp)
 
-    # Load forecast data
-    df = load_forecast(bp=bp)
+    if args.date:
+        print(f"Generating forecast for delivery day {args.date}")
+    df = load_forecast(bp=bp, target_date=args.date)
 
     # Generate scenarios
     scenarios = generate_tier3_scenarios(
@@ -852,27 +942,42 @@ if __name__ == "__main__":
 
     # Optimize
     print("Running Tier Final optimisation...")
-    schedule, profits = optimize_tier_final(df, scenarios, bp)
+    used_lp_fallback = False
+    try:
+        schedule, profits = optimize_tier_final(df, scenarios, bp)
 
-    # Naive baseline
-    naive = naive_rank_strategy(df, bp)
+        # Naive baseline
+        naive = naive_rank_strategy(df, bp)
 
-    # Metrics
-    metrics, evaluated_profits = calculate_metrics(
-        schedule,
-        scenarios,
-        bp,
-        naive_schedule=naive,
-    )
-    group_metrics = calculate_group_metrics(schedule, scenarios, bp)
+        # Metrics
+        metrics, evaluated_profits = calculate_metrics(
+            schedule,
+            scenarios,
+            bp,
+            naive_schedule=naive,
+        )
+        group_metrics = calculate_group_metrics(schedule, scenarios, bp)
+    except Exception as exc:  # noqa: BLE001
+        if "not available" not in str(exc).lower() and "solver" not in str(exc).lower():
+            raise
+        print(f"WARNING: stochastic MILP solver unavailable ({exc}).")
+        print("Falling back to deterministic trained-forecast LP.")
+        schedule, metrics = optimize_tier_final_lp_fallback(df, bp)
+        profits = np.array([metrics["profit_eur"]], dtype=float)
+        evaluated_profits = profits
+        group_metrics = []
+        used_lp_fallback = True
 
     print("\n=== Tier Final Metrics (API battery config) ===")
+    if used_lp_fallback:
+        print("  solver_mode: deterministic_lp_fallback")
     for k, v in metrics.items():
         if isinstance(v, float):
             print(f"  {k}: {v:,.4f}")
         else:
             print(f"  {k}: {v}")
-    print_group_metrics(group_metrics)
+    if group_metrics:
+        print_group_metrics(group_metrics)
 
     # Save results
     from optimisation._paths import result
