@@ -157,7 +157,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._save_config()
 
     def _fetch_and_evaluate(self) -> None:
-        from datetime import date as _date, datetime as _datetime
+        from datetime import datetime as _datetime
 
         try:
             payload = self._read_json_body() if int(self.headers.get("content-length", "0")) else {}
@@ -166,13 +166,6 @@ class ApiHandler(BaseHTTPRequestHandler):
             return
 
         date_str = (payload or {}).get("date")
-        try:
-            target = (
-                _datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else _date.today()
-            )
-        except ValueError:
-            self._send_json({"error": "date must be YYYY-MM-DD"}, status=HTTPStatus.BAD_REQUEST)
-            return
 
         try:
             from optimisation.henex_dam import fetch_actual_prices
@@ -186,9 +179,35 @@ class ApiHandler(BaseHTTPRequestHandler):
             )
             from optimisation.tier_final import load_battery_params
 
+            schedule = _load_schedule(SCHEDULE_PATH_DEFAULT)
+            schedule_day = schedule["timestamp"].iloc[0].date()
+
+            if date_str:
+                try:
+                    requested = _datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    self._send_json({"error": "date must be YYYY-MM-DD"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                if requested != schedule_day:
+                    self._send_json(
+                        {
+                            "error": (
+                                f"Date mismatch: schedule covers delivery day {schedule_day}, "
+                                f"but {requested} was requested. Re-run the optimiser for "
+                                f"{requested} or fetch HEnEx prices for {schedule_day}."
+                            ),
+                            "schedule_day": schedule_day.isoformat(),
+                            "requested_day": requested.isoformat(),
+                        },
+                        status=HTTPStatus.BAD_REQUEST,
+                    )
+                    return
+                target = requested
+            else:
+                target = schedule_day
+
             _, source_url, csv_path = fetch_actual_prices(target)
             bp = load_battery_params()
-            schedule = _load_schedule(SCHEDULE_PATH_DEFAULT)
             actual = _load_actual(csv_path, schedule)
             mtu_df, summary = _evaluate(schedule, actual, bp)
 
