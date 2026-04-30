@@ -300,7 +300,7 @@ export function Backtest() {
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide">
               <CheckCircle2 className="h-4 w-4" /> Investment context
             </h2>
-            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 lg:grid-cols-4">
               <div>
                 <div className="text-muted-foreground">CAPEX</div>
                 <div className="mt-0.5 font-mono">{fmt.eurMillions(summary.capex_eur)}</div>
@@ -318,12 +318,25 @@ export function Backtest() {
                 </div>
               </div>
               <div>
-                <div className="text-muted-foreground">Realistic Y1 cashflow</div>
+                <div className="text-muted-foreground">Realistic Y1 trading P&L</div>
                 <div className="mt-0.5 font-mono">
-                  {fmt.eurMillions(summary.annualized_profit_eur * 0.729 - 1.65e6)}
+                  {fmt.eurMillions(summary.annualized_profit_eur * 0.729)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  After 27% slippage/imbalance/leakage haircut + 2.5% OPEX
+                  After 27% slippage / imbalance / leakage haircut. Before OPEX.
+                </div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Y1 net of battery depreciation</div>
+                <div className="mt-0.5 font-mono">
+                  {fmt.eurMillions(
+                    summary.annualized_profit_eur * 0.729 -
+                      summary.capex_eur / summary.life_years_8000c,
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Less straight-line depreciation: €{(summary.capex_eur / summary.life_years_8000c / 1e6).toFixed(2)}M/yr
+                  ({summary.life_years_8000c.toFixed(1)}-yr life, 8000-cycle LFP).
                 </div>
               </div>
             </div>
