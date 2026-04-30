@@ -44,12 +44,36 @@ def cvar(values: pd.Series, alpha: float = 0.05) -> float:
     return float(tail.mean()) if len(tail) else float("nan")
 
 
-def summarize_daily(daily: pd.DataFrame) -> dict[str, float | int | str]:
+def summarize_daily(
+    daily: pd.DataFrame,
+    capex_eur: float = 0.0,
+    risk_free_rate_pct: float = 0.0,
+) -> dict[str, float | int | str]:
     pnl = daily["realized_profit_eur"].astype(float)
     downside = pnl[pnl < 0.0]
     std = float(pnl.std(ddof=0))
     downside_std = float(downside.std(ddof=0)) if len(downside) else 0.0
     days = int(len(daily))
+
+    if capex_eur > 0:
+        ret = pnl / capex_eur
+        daily_rf = (risk_free_rate_pct / 100.0) / 365.0
+        excess = ret - daily_rf
+        ret_downside = ret[ret < 0.0]
+        ret_std = float(ret.std(ddof=0))
+        ret_dn_std = float(ret_downside.std(ddof=0)) if len(ret_downside) else 0.0
+        return_sharpe_d = float(excess.mean() / ret_std) if ret_std > 1e-12 else np.nan
+        return_sharpe_a = float(return_sharpe_d * np.sqrt(365.0)) if ret_std > 1e-12 else np.nan
+        return_sortino_d = float(excess.mean() / ret_dn_std) if ret_dn_std > 1e-12 else np.nan
+        return_sortino_a = float(return_sortino_d * np.sqrt(365.0)) if ret_dn_std > 1e-12 else np.nan
+        mean_daily_return_pct = float(ret.mean() * 100)
+        annualized_return_pct = float(pnl.sum() / capex_eur * 365.0 / days * 100) if days else 0.0
+        annualized_excess_return_pct = annualized_return_pct - risk_free_rate_pct
+    else:
+        return_sharpe_d = return_sharpe_a = np.nan
+        return_sortino_d = return_sortino_a = np.nan
+        mean_daily_return_pct = annualized_return_pct = np.nan
+        annualized_excess_return_pct = np.nan
 
     return {
         "days": days,
@@ -60,11 +84,20 @@ def summarize_daily(daily: pd.DataFrame) -> dict[str, float | int | str]:
         "mean_daily_profit_eur": float(pnl.mean()) if days else 0.0,
         "median_daily_profit_eur": float(pnl.median()) if days else 0.0,
         "std_daily_profit_eur": std,
-        "daily_sharpe": float(pnl.mean() / std) if std > 1e-9 else np.nan,
-        "annualized_sharpe": float((pnl.mean() / std) * np.sqrt(365.0)) if std > 1e-9 else np.nan,
-        "daily_sortino": float(pnl.mean() / downside_std) if downside_std > 1e-9 else np.nan,
-        "annualized_sortino": float((pnl.mean() / downside_std) * np.sqrt(365.0))
+        "daily_pnl_sharpe": float(pnl.mean() / std) if std > 1e-9 else np.nan,
+        "annualized_pnl_sharpe": float((pnl.mean() / std) * np.sqrt(365.0)) if std > 1e-9 else np.nan,
+        "daily_pnl_sortino": float(pnl.mean() / downside_std) if downside_std > 1e-9 else np.nan,
+        "annualized_pnl_sortino": float((pnl.mean() / downside_std) * np.sqrt(365.0))
         if downside_std > 1e-9 else np.nan,
+        "capex_eur": float(capex_eur),
+        "risk_free_rate_pct": float(risk_free_rate_pct),
+        "mean_daily_return_pct": mean_daily_return_pct,
+        "annualized_return_pct": annualized_return_pct,
+        "annualized_excess_return_pct": annualized_excess_return_pct,
+        "daily_return_sharpe": return_sharpe_d,
+        "annualized_return_sharpe": return_sharpe_a,
+        "daily_return_sortino": return_sortino_d,
+        "annualized_return_sortino": return_sortino_a,
         "win_rate": float((pnl > 0.0).mean()) if days else 0.0,
         "loss_rate": float((pnl < 0.0).mean()) if days else 0.0,
         "worst_day_profit_eur": float(pnl.min()) if days else 0.0,
@@ -96,6 +129,18 @@ def main() -> None:
     parser.add_argument("--degradation-eur-mwh", type=float, default=10.0)
     parser.add_argument("--risk-lambda", type=float, default=0.35)
     parser.add_argument("--max-cycles", type=float, default=2.0)
+    parser.add_argument(
+        "--capex-eur-per-mwh",
+        type=float,
+        default=220_000.0,
+        help="Battery installed cost per MWh (2025-2026 LFP turnkey ~€220k/MWh).",
+    )
+    parser.add_argument(
+        "--risk-free-rate-pct",
+        type=float,
+        default=3.0,
+        help="Annual risk-free rate percentage (subtracted from returns for Sharpe).",
+    )
     parser.add_argument(
         "--min-rows-per-day",
         type=int,
@@ -179,7 +224,12 @@ def main() -> None:
 
     schedule_df = pd.concat(schedules, ignore_index=True)
     daily_df = pd.DataFrame(daily_rows)
-    summary = summarize_daily(daily_df)
+    capex_eur = args.energy_mwh * args.capex_eur_per_mwh
+    summary = summarize_daily(
+        daily_df,
+        capex_eur=capex_eur,
+        risk_free_rate_pct=args.risk_free_rate_pct,
+    )
     summary.update(
         {
             "forecast_csv": str(args.forecast_csv),
@@ -213,8 +263,13 @@ def main() -> None:
         "annualized_realized_profit_eur",
         "mean_daily_profit_eur",
         "win_rate",
-        "annualized_sharpe",
-        "annualized_sortino",
+        "capex_eur",
+        "risk_free_rate_pct",
+        "annualized_return_pct",
+        "annualized_excess_return_pct",
+        "annualized_return_sharpe",
+        "annualized_return_sortino",
+        "annualized_pnl_sharpe",
         "max_drawdown_eur",
         "cvar5_daily_profit_eur",
         "total_throughput_mwh",
