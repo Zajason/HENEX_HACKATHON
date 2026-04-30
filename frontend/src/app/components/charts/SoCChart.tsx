@@ -2,6 +2,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { SocPoint } from '../../data/AppDataContext';
 
 export function SoCChart({ data }: { data: SocPoint[] }) {
+  const xAxisInterval = data.length > 48 ? 7 : 3;
+
   return (
     <ResponsiveContainer width="100%" height={250}>
       <AreaChart data={data}>
@@ -16,7 +18,8 @@ export function SoCChart({ data }: { data: SocPoint[] }) {
           dataKey="time"
           stroke="#475569"
           tick={{ fill: '#94A3B8' }}
-          interval={3}
+          interval={xAxisInterval}
+          minTickGap={24}
         />
         <YAxis
           stroke="#475569"

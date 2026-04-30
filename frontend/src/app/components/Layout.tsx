@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { BarChart3, Battery, Gauge, LayoutDashboard, Settings } from "lucide-react";
+import { BarChart3, Battery, Gauge, LayoutDashboard } from "lucide-react";
 
 export function Layout() {
   const location = useLocation();
@@ -8,7 +8,6 @@ export function Layout() {
     { path: "/", label: "Live Desk", icon: LayoutDashboard },
     { path: "/config", label: "Assets", icon: Battery },
     { path: "/backtest", label: "Backtest", icon: BarChart3 },
-    { path: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (

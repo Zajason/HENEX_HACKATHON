@@ -100,7 +100,7 @@ export function Dashboard() {
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Panel title="Dispatch windows" eyebrow="Dispatch draft">
+        <Panel title="Dispatch windows" eyebrow="15-minute dispatch draft">
           <StrategyTimeline windows={dispatchWindows} />
         </Panel>
 
