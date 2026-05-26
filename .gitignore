@@ -4,12 +4,8 @@ logs/
 
 __pycache__/
 *.pyc
+*.log
 .claude/
 .DS_Store
-
-.DS_Store
-__pycache__/
 node_modules/
 *.zip
-node_modules/
-node_modules/
